@@ -104,6 +104,9 @@ class Role(Plugin):
         bot = Bridge().get_bot("chat")
         content = e_context["context"].content[:]
         clist = e_context["context"].content.split(maxsplit=1)
+        if clist[0].startswith('/'):
+            logger.info("[Role] : found plugin trigger prefix. escape.")
+            return
         desckey = None
         customize = False
         sessionid = e_context["context"]["session_id"]
