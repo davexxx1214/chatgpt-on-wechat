@@ -271,7 +271,7 @@ class Godcmd(Plugin):
                         if args[0] not in const.MODEL_LIST:
                             ok, result = False, "模型名称不存在"
                         else:
-                            conf()["model"] = self.model_mapping(args[0])
+                            conf()["model"] = args[0]
                             Bridge().reset_bot()
                             ok, result = True, "模型设置为: " + str(conf().get("model"))
                 elif cmd == "id":
@@ -293,15 +293,15 @@ class Godcmd(Plugin):
                 elif cmd == "set_gpt_model":
                     if len(args) == 1:
                         user_data = conf().get_user_data(user)
-                        user_data["azure_deployment_id"] = args[0]
+                        user_data["gpt_model"] = args[0]
                         ok, result = True, "你的GPT模型已设置为" + args[0]
                     else:
                         ok, result = False, "请提供一个GPT模型"
                 elif cmd == "gpt_model":
                     user_data = conf().get_user_data(user)
-                    model = conf().get("azure_deployment_id")
+                    model = conf().get("model")
                     if "gpt_model" in user_data:
-                        model = user_data["azure_deployment_id"]
+                        model = user_data["gpt_model"]
                     ok, result = True, "你的GPT模型为" + str(model)
                 elif cmd == "reset_gpt_model":
                     try:
@@ -467,9 +467,3 @@ class Godcmd(Plugin):
         if context["isgroup"]:
             return context.kwargs.get("msg").actual_user_id in global_config["admin_users"]
         return False
-
-
-    def model_mapping(self, model) -> str:
-        if model == "gpt-4-turbo":
-            return const.GPT4_TURBO_PREVIEW
-        return model
