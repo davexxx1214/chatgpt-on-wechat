@@ -125,8 +125,9 @@ class ChatChannel(Channel):
                     context["desire_rtype"] = ReplyType.VOICE
                     
                 if not flag:
-                    if context["origin_ctype"] == ContextType.VOICE:
-                        logger.info("[WX]receive group voice, but checkprefix didn't match")
+                    if context["origin_ctype"] == ContextType.VOICE and conf().get("always_reply_voice"):
+                        context["desire_rtype"] = ReplyType.VOICE
+                        logger.info("[WX]receive group voice, always reply voice")
                     return None
             else:  # 单聊
                 match_prefix = check_prefix(content, conf().get("single_chat_prefix", [""]))
