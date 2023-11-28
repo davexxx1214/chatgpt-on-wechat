@@ -126,14 +126,10 @@ class ChatChannel(Channel):
                             pattern = f"@{re.escape(context['msg'].self_display_name)}(\u2005|\u0020)"
                             subtract_res = re.sub(pattern, r"", content)
                         content = subtract_res
-
-                if "desire_rtype" not in context and conf().get("voice_reply_voice") and ReplyType.VOICE not in self.NOT_SUPPORT_REPLYTYPE:
-                    context["desire_rtype"] = ReplyType.VOICE
                     
                 if not flag:
-                    if context["origin_ctype"] == ContextType.VOICE and conf().get("voice_reply_voice"):
-                        context["desire_rtype"] = ReplyType.VOICE
-                        logger.info("[WX]receive group voice, always reply voice")
+                    if context["origin_ctype"] == ContextType.VOICE:
+                        logger.info("[WX]receive group voice, but checkprefix didn't match")
                     return None
             else:  # 单聊
                 nick_name = context["msg"].from_user_nickname
