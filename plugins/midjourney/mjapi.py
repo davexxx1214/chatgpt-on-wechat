@@ -321,7 +321,7 @@ class _mjApi:
         help_text += f"3.使用: 需要使用--key value, key和value空格隔开, 多个附加参数空格隔开\n"
         help_text += f"-----------------------------\n"
         help_text += f"📗 附加参数列表\n"
-        help_text += f"1. --v 版本 1,2,3,4,5,5.1,5.2 默认5.2, 不可与niji同用\n"
+        help_text += f"1. --v 版本 1,2,3,4,5,5.1,5.2,6.0 默认6.0, 不可与niji同用\n"
         help_text += f"2. --niji 动漫风 4或5 默认4, 不可与v同用\n"
         help_text += f"3. --style raw 原始风格, 默认开启,(4a,4b,4c)v4可用\n"
         help_text += f"4. --niji 5模式下--style的值可为[cute:可爱风格;scenic:偏风景风格;original:原始风格;expressive:更精致图文并茂的感觉]\n"
