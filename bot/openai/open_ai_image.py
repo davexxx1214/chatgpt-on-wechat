@@ -37,7 +37,7 @@ class OpenAIImage(object):
                 logger.warn("[OPEN_AI] ImgCreate RateLimit exceed, 第{}次重试".format(retry_count + 1))
                 return self.create_img(query, retry_count + 1)
             else:
-                return False, "画图出现问题，可能是画图配额不足(当前画图配额为每分钟5张)或者某些关键词或句子未通过安全审查"
+                return False, "画图出现问题，可能是画图配额不足(当前画图配额为每分钟5张)"
         except Exception as e:
             logger.exception(e)
-            return False, "画图出现问题，可能是画图配额不足(当前画图配额为每分钟5张)或者某些关键词或句子未通过安全审查"
+            return False, "画图出现问题，可能是某些关键词或句子未通过安全审查"
