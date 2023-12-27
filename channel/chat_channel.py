@@ -131,7 +131,8 @@ class ChatChannel(Channel):
                     if context["origin_ctype"] == ContextType.VOICE:# 如果源消息是群聊的语音消息，允许不匹配前缀，放宽条件
                         logger.info("[WX]receive group voice, always reply")
                         pass
-                    return None
+                    else:
+                        return None
             else:  # 单聊
                 nick_name = context["msg"].from_user_nickname
                 if nick_name and nick_name in nick_name_black_list:
