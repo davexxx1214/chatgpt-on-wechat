@@ -83,6 +83,8 @@ class OpenAIBot(Bot, OpenAIImage):
 
     def reply_text(self, session: OpenAISession, retry_count=0):
         try:
+            if conf().get("open_ai_api_base"):
+                openai.api_base = conf().get("open_ai_api_base")
             response = openai.Completion.create(prompt=str(session), **self.args)
             res_content = response.choices[0]["text"].strip().replace("<|endoftext|>", "")
             total_tokens = response["usage"]["total_tokens"]
