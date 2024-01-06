@@ -45,6 +45,9 @@ class OpenAIBot(Bot, OpenAIImage):
         # acquire reply content
         if context and context.type:
             if context.type == ContextType.TEXT:
+                if conf().get("open_ai_api_base"):
+                    openai.api_base = conf().get("open_ai_api_base")
+                    
                 logger.info("[OPEN_AI] query={}".format(query))
                 session_id = context["session_id"]
                 reply = None
@@ -73,6 +76,7 @@ class OpenAIBot(Bot, OpenAIImage):
                         reply = Reply(ReplyType.TEXT, reply_content)
                 return reply
             elif context.type == ContextType.IMAGE_CREATE:
+                openai.api_base = 'https://api.openai.com/v1'
                 ok, retstring = self.create_img(query, 0)
                 reply = None
                 if ok:
