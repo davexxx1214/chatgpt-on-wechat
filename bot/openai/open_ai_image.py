@@ -12,6 +12,7 @@ from config import conf
 class OpenAIImage(object):
     def __init__(self):
         openai.api_key = conf().get("open_ai_api_key")
+        openai.api_base = 'https://api.openai.com/v1'
         if conf().get("rate_limit_dalle"):
             self.tb4dalle = TokenBucket(conf().get("rate_limit_dalle", 50))
 
