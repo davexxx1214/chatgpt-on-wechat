@@ -1,0 +1,5 @@
+{
+  "api_url":"127.0.0.1:9880",
+  "tts_prefix":"变声",
+  "tts_model":"leixiaojun"
+}
