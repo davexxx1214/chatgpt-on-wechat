@@ -38,6 +38,7 @@ class sovits(Plugin):
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             # 从配置中提取所需的设置
             self.api_url = self.config.get("api_url","")
+            self.tts_prefix = self.config.get("tts_prefix","变声")
             self.params_cache = ExpiredDict(300)
             # 初始化成功日志
             logger.info("[sovits] inited.")
@@ -59,11 +60,7 @@ class sovits(Plugin):
             self.params_cache[user_id]['tts_quota'] = 0
             logger.info('Added new user to params_cache.')
 
-        # if content.startswith(self.tts_prefix):
-        #     # Call new function to handle search operation
-        #     self.call_service(content, e_context)
-        #     return
-        if self.params_cache[user_id]['tts_quota'] > 0:
+        if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
             self.params_cache[user_id]['tts_quota'] = 0
             self.call_service(content, e_context)
             return
