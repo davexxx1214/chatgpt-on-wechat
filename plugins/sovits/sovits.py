@@ -62,6 +62,7 @@ class sovits(Plugin):
             logger.info('Added new user to params_cache.')
 
         if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
+            logger.info('符合转换条件，开始转换')
             self.params_cache[user_id]['tts_quota'] = 0
             self.call_service(content, e_context)
             return
@@ -74,7 +75,7 @@ class sovits(Plugin):
                 tip = f"\n未检测到模型名称，将使用系统默认模型。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称"
                 if match:
                     self.params_cache[user_id]['tts_model'] = content[len(self.tts_prefix):]
-                    tip = f"\n\n💬使用的提示词为:{self.params_cache[user_id]['tts_model'] }"
+                    tip = f"\n\n💬使用的模型为:{self.params_cache[user_id]['tts_model'] }"
                 else:
                     self.params_cache[user_id]['tts_model'] = self.tts_model
 
@@ -87,6 +88,7 @@ class sovits(Plugin):
         self.handle_sovits(content, e_context)
 
     def handle_sovits(self, content, e_context):
+        logger.info(f"handle_sovits, content =  {content}")
         data = {
             "refer_wav_path": "E:\\Dave\\GPT-SoVITS-beta\\GPT-SoVITS\\output\\slicer_opt\\leijun.wav_132160_296960.wav",
             "prompt_text": "你们都是做数据分析的高手，欢迎来我们小米",
@@ -99,6 +101,8 @@ class sovits(Plugin):
             os.makedirs('./tmp')
 
         filename = f"./tmp/{str(uuid.uuid4())}.wav"
+        logger.info(f"handle_sovits, temp file =  {filename}")
+
         try:
             api_url = self.api_url
             # response = requests.post(api_url, json=data)
@@ -107,6 +111,7 @@ class sovits(Plugin):
             # 处理响应数据
             with open(filename, 'wb') as f:
                 f.write(response.content)
+            logger.info(f"handle_sovits, received file =  {filename}")
 
         except Exception as e:
             reply.type = ReplyType.ERROR
@@ -115,6 +120,5 @@ class sovits(Plugin):
             e_context.action = EventAction.CONTINUE  # 事件继续，交付给下个插件或默认逻辑
 
         reply = Reply(ReplyType.VOICE, filename)
-        reply.content = f"转换结束"
         e_context["reply"] = reply
         e_context.action = EventAction.BREAK_PASS
