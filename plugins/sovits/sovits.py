@@ -52,6 +52,12 @@ class sovits(Plugin):
         content = context.content
         isgroup = e_context["context"].get("isgroup", False)
 
+        # 将用户信息存储在params_cache中
+        if user_id not in self.params_cache:
+            self.params_cache[user_id] = {}
+            self.params_cache[user_id]['tts_quota'] = 0
+            logger.info('Added new user to params_cache.')
+
         # if content.startswith(self.tts_prefix):
         #     # Call new function to handle search operation
         #     self.call_service(content, e_context)
@@ -60,12 +66,6 @@ class sovits(Plugin):
             self.params_cache[user_id]['tts_quota'] = 0
             self.call_service(content, e_context)
             return
-        
-        # 将用户信息存储在params_cache中
-        if user_id not in self.params_cache:
-            self.params_cache[user_id] = {}
-            self.params_cache[user_id]['tts_quota'] = 0
-            logger.info('Added new user to params_cache.')
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.tts_prefix):
