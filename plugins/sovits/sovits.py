@@ -39,6 +39,7 @@ class sovits(Plugin):
             # 从配置中提取所需的设置
             self.api_url = self.config.get("api_url","")
             self.tts_prefix = self.config.get("tts_prefix","变声")
+            self.tts_model = self.config.get("tts_model","default")
             self.params_cache = ExpiredDict(300)
             # 初始化成功日志
             logger.info("[sovits] inited.")
