@@ -7,6 +7,7 @@ from bridge.context import ContextType
 from channel.chat_message import ChatMessage
 from plugins import *
 from common.log import logger
+from common.expired_dict import ExpiredDict
 import os
 import uuid
 
@@ -37,7 +38,7 @@ class sovits(Plugin):
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             # 从配置中提取所需的设置
             self.api_url = self.config.get("api_url","")
-            
+            self.params_cache = ExpiredDict(300)
             # 初始化成功日志
             logger.info("[sovits] inited.")
         except Exception as e:
