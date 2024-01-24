@@ -59,12 +59,12 @@ class sovits(Plugin):
         if user_id not in self.params_cache:
             self.params_cache[user_id] = {}
             self.params_cache[user_id]['tts_quota'] = 0
-            logger.info('Added new user to params_cache.')
+            logger.info('Added new user to params_cache. user id = ' + user_id)
 
         if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
             logger.info('符合转换条件，开始转换')
             self.params_cache[user_id]['tts_quota'] = 0
-            self.call_service(content, e_context)
+            self.call_service(content, user_id, e_context)
             return
 
         if e_context['context'].type == ContextType.TEXT:
@@ -84,17 +84,15 @@ class sovits(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
-    def call_service(self, content, e_context):
-        self.handle_sovits(content, e_context)
+    def call_service(self, content, user_id, e_context):
+        self.handle_sovits(content, user_id, e_context)
 
-    def handle_sovits(self, content, e_context):
+    def handle_sovits(self, content, user_id, e_context):
         logger.info(f"handle_sovits, content =  {content}")
+        tts_model = self.params_cache[user_id]['tts_model']
         data = {
-            "refer_wav_path": "E:\\Dave\\GPT-SoVITS-beta\\GPT-SoVITS\\output\\slicer_opt\\leijun.wav_132160_296960.wav",
-            "prompt_text": "你们都是做数据分析的高手，欢迎来我们小米",
-            "prompt_language":"zh",
+            "model":tts_model,
             "text":content,
-            "text_language":"zh"
         }
         
         if not os.path.exists('./tmp'):
