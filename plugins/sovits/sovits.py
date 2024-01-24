@@ -92,6 +92,7 @@ class sovits(Plugin):
     def handle_sovits(self, content, user_id, e_context):
         logger.info(f"handle_sovits, content =  {content}")
         tts_model = self.params_cache[user_id]['tts_model']
+        logger.info('using tts_model = ' + tts_model)
         data = {
             "model":tts_model,
             "text":content,
