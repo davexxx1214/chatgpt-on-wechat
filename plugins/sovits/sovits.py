@@ -40,6 +40,7 @@ class sovits(Plugin):
             self.api_url = self.config.get("api_url","")
             self.tts_prefix = self.config.get("tts_prefix","变声")
             self.tts_model = self.config.get("tts_model","default")
+            self.model_list = self.config.get("model_list", "[]")
             self.params_cache = ExpiredDict(300)
             # 初始化成功日志
             logger.info("[sovits] inited.")
@@ -72,7 +73,8 @@ class sovits(Plugin):
                 # Call new function to handle search operation
                 pattern = self.tts_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                tip = f"\n未检测到模型名称，将使用系统默认模型。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称"
+                model_str = ",".join(self.model_list)
+                tip = f"\n未检测到模型名称，将使用系统默认模型。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
                 if match:
                     self.params_cache[user_id]['tts_model'] = content[len(self.tts_prefix):]
                     tip = f"\n\n💬使用的模型为:{self.params_cache[user_id]['tts_model'] }"
