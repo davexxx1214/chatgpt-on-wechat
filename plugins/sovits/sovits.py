@@ -76,7 +76,7 @@ class sovits(Plugin):
                 model_str = ",".join(self.model_list)
                 tip = f"\n未检测到模型名称，将使用系统默认模型。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
                 if match:
-                    self.params_cache[user_id]['tts_model'] = content[len(self.tts_prefix):]
+                    self.params_cache[user_id]['tts_model'] = content[len(self.tts_prefix):].strip()
                     tip = f"\n\n💬使用的模型为:{self.params_cache[user_id]['tts_model'] }"
                 else:
                     self.params_cache[user_id]['tts_model'] = self.tts_model
@@ -92,7 +92,7 @@ class sovits(Plugin):
     def handle_sovits(self, content, user_id, e_context):
         logger.info(f"handle_sovits, content =  {content}")
         tts_model = self.params_cache[user_id]['tts_model']
-        logger.info('using tts_model = ' + tts_model)
+        logger.info('using tts_model=' + tts_model)
         data = {
             "model":tts_model,
             "text":content,
