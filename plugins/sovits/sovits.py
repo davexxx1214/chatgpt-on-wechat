@@ -81,6 +81,7 @@ class sovits(Plugin):
                         self.params_cache[user_id]['tts_model'] = tts_model
                         tip = f"\n\n💬使用的模型为:{tts_model}"
                     else:
+                        self.params_cache[user_id]['tts_model'] = self.tts_model
                         tip = f"\n\n💬错误的模型名称:{tts_model}，将使用默认语音模型"
                     
                 else:
