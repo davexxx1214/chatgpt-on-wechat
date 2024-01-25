@@ -76,8 +76,13 @@ class sovits(Plugin):
                 model_str = ",".join(self.model_list)
                 tip = f"\n未检测到模型名称，将使用系统默认模型。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
                 if match:
-                    self.params_cache[user_id]['tts_model'] = content[len(self.tts_prefix):].strip()
-                    tip = f"\n\n💬使用的模型为:{self.params_cache[user_id]['tts_model'] }"
+                    tts_model = content[len(self.tts_prefix):].strip()
+                    if tts_model in self.model_list:
+                        self.params_cache[user_id]['tts_model'] = tts_model
+                        tip = f"\n\n💬使用的模型为:{tts_model}"
+                    else:
+                        tip = f"\n\n💬错误的模型名称:{tts_model}，将使用默认语音模型"
+                    
                 else:
                     self.params_cache[user_id]['tts_model'] = self.tts_model
 
