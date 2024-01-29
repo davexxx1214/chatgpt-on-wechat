@@ -10,6 +10,7 @@ from common.log import logger
 from common.expired_dict import ExpiredDict
 import os
 import uuid
+from .ttsapi import _ttsApi
 
 @plugins.register(
     name="sovits",
@@ -34,6 +35,8 @@ class sovits(Plugin):
 
                 if not self.config:
                     raise Exception("config.json not found")
+            
+            self.tts = _ttsApi(self.config)
             # 设置事件处理函数
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             # 从配置中提取所需的设置
@@ -41,7 +44,7 @@ class sovits(Plugin):
             self.tts_prefix = self.config.get("tts_prefix","变声")
             self.tts_model = self.config.get("tts_model","default")
             self.model_list = self.config.get("model_list", "[]")
-            self.params_cache = ExpiredDict(300)
+            self.params_cache = ExpiredDict(500)
             # 初始化成功日志
             logger.info("[sovits] inited.")
         except Exception as e:
@@ -99,33 +102,53 @@ class sovits(Plugin):
         logger.info(f"handle_sovits, content =  {content}")
         tts_model = self.params_cache[user_id]['tts_model']
         logger.info('using tts_model=' + tts_model)
-        data = {
-            "model":tts_model,
-            "text":content,
-        }
         
-        if not os.path.exists('./tmp'):
-            os.makedirs('./tmp')
+        status, msg, id = self.tts.convert(tts_model, content)
+        return self._reply(status, msg, id, e_context)
+    
+    def _reply(self, status, msg, id, e_context: EventContext):
+        if status:
+            rc, rt = self.get_result(id)
+            return self.send(rc, e_context, rt)
+        else:
+            return self.Error(msg, e_context)
+        
+    def get_result(self, id):
+        status, msg, filepath = self.tts.get_tts_result(id)
+        rt = ReplyType.TEXT
+        rc = msg
+        if not status:
+            rt = ReplyType.ERROR
+        if status and filepath:
+            rt = ReplyType.VOICE
+            rc = filepath
+        if not rc:
+            rt = ReplyType.ERROR
+            rc = "语音转换失败"
+        return rc, rt
 
-        filename = f"./tmp/{str(uuid.uuid4())}.wav"
-        logger.info(f"handle_sovits, temp file =  {filename}")
+    def send_reply(reply, e_context: EventContext, reply_type=ReplyType.TEXT):
+        if isinstance(reply, Reply):
+            if not reply.type and reply_type:
+                reply.type = reply_type
+        else:
+            reply = Reply(reply_type, reply)
+        channel = e_context['channel']
+        context = e_context['context']
+        # reply的包装步骤
+        rd = channel._decorate_reply(context, reply)
+        # reply的发送步骤
+        return channel._send_reply(context, rd)
 
-        try:
-            api_url = self.api_url
-            # response = requests.post(api_url, json=data)
-            response = requests.post(api_url, json=data, stream=True)
-            response.raise_for_status()
-            # 处理响应数据
-            with open(filename, 'wb') as f:
-                f.write(response.content)
-            logger.info(f"handle_sovits, received file =  {filename}")
-
-        except Exception as e:
-            reply.type = ReplyType.ERROR
-            reply.content = "服务暂不可用"+str(e)
-            logger.error("[sovits] exception: %s" % e)
-            e_context.action = EventAction.CONTINUE  # 事件继续，交付给下个插件或默认逻辑
-
-        reply = Reply(ReplyType.VOICE, filename)
+    def send(reply, e_context: EventContext, reply_type=ReplyType.TEXT, action=EventAction.BREAK_PASS):
+        if isinstance(reply, Reply):
+            if not reply.type and reply_type:
+                reply.type = reply_type
+        else:
+            reply = Reply(reply_type, reply)
         e_context["reply"] = reply
-        e_context.action = EventAction.BREAK_PASS
+        e_context.action = action
+        return
+    
+    def Error(self, msg, e_context: EventContext):
+        return self.send(msg, e_context, ReplyType.ERROR)
