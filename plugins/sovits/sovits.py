@@ -1,4 +1,3 @@
-import requests
 import json
 import re
 import plugins
@@ -9,8 +8,8 @@ from plugins import *
 from common.log import logger
 from common.expired_dict import ExpiredDict
 import os
-import uuid
 from .ttsapi import _ttsApi
+import random
 
 @plugins.register(
     name="sovits",
@@ -104,12 +103,12 @@ class sovits(Plugin):
         logger.info('using tts_model=' + tts_model)
         
         status, msg, id = self.tts.convert(tts_model, content)
-        return self._reply(status, msg, id, e_context)
+        return self._reply(status, msg, id, tts_model, content,e_context)
     
-    def _reply(self, status, msg, id, e_context: EventContext):
+    def _reply(self, status, msg, id, tts_model, content, e_context: EventContext):
         if status:
             logger.info('querying task id =' + id)
-            rc, rt = self.get_result(id)
+            rc, rt = self.get_result(id, tts_model, content)
             reply = Reply(rt, rc)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -119,7 +118,7 @@ class sovits(Plugin):
             logger.error("[sovits] service exception")
             e_context.action = EventAction.BREAK_PASS
         
-    def get_result(self, id):
+    def get_result(self, id, tts_model, content):
         status, msg, filepath = self.tts.get_tts_result(id)
         rt = ReplyType.TEXT
         rc = msg
@@ -129,10 +128,32 @@ class sovits(Plugin):
 
         if status and filepath:
             logger.info('getting result, status = ' + str(status) + ', file path =' + filepath)
+            newfilepath = self.rename_file(filepath, tts_model, content)
             rt = ReplyType.VOICE
-            rc = filepath
+            rc = newfilepath
 
         if not rc:
             rt = ReplyType.ERROR
             rc = "语音转换失败"
         return rc, rt
+    
+    def rename_file(filepath, model, content):
+        # 提取目录路径和扩展名
+        dir_path, filename = os.path.split(filepath)
+        file_ext = os.path.splitext(filename)[1]
+
+        # 移除content中的标点符号和空格
+        cleaned_content = re.sub(r'[^\w]', '', content)
+        # 截取content的前10个字符
+        content_prefix = cleaned_content[:10]
+        
+        # 生成一个随机的4位数字
+        random_number = f"{random.randint(0, 9999):04}"
+        
+        # 组装新的文件名，包括模型、内容和4位随机数
+        new_filename = f"({model}){content_prefix}{random_number}"
+
+        # 拼接回完整的新文件路径
+        new_filepath = os.path.join(dir_path, new_filename + file_ext)
+        
+        return new_filepath
