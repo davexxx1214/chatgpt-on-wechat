@@ -81,10 +81,10 @@ class sovits(Plugin):
                     tts_model = content[len(self.tts_prefix):].strip()
                     if tts_model in self.model_list:
                         self.params_cache[user_id]['tts_model'] = tts_model
-                        tip = f"\n\n💡{tts_model}已就位（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
+                        tip = f"💡{tts_model}已就位（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
                     else:
                         self.params_cache[user_id]['tts_model'] = self.tts_model
-                        tip = f"\n\n💬错误的模型名称:{tts_model}，将使用默认语音模型"
+                        tip = f"💬错误的模型名称:{tts_model}，将使用默认语音模型（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
                     
                 else:
                     self.params_cache[user_id]['tts_model'] = self.tts_model
@@ -137,7 +137,7 @@ class sovits(Plugin):
             rc = "语音转换失败"
         return rc, rt
     
-    def rename_file(filepath, model, content):
+    def rename_file(self, filepath, model, content):
         # 提取目录路径和扩展名
         dir_path, filename = os.path.split(filepath)
         file_ext = os.path.splitext(filename)[1]
