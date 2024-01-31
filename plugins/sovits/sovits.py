@@ -147,14 +147,8 @@ class sovits(Plugin):
         # reply的发送步骤
         return channel._send_reply(context, rd)
 
-    def send(reply, e_context: EventContext, reply_type=ReplyType.TEXT, action=EventAction.BREAK_PASS):
-        if isinstance(reply, Reply):
-            if not reply.type and reply_type:
-                logger.info('setting reply, reply_type =' + str(reply_type))
-                reply.type = reply_type
-        else:
-            logger.info('sending reply, reply_type =' + str(reply_type))
-            reply = Reply(reply_type, reply)
+    def send(rc, e_context: EventContext, rt=ReplyType.TEXT, action=EventAction.BREAK_PASS):
+        reply = Reply(rt, rc)
         e_context["reply"] = reply
         e_context.action = action
         return
