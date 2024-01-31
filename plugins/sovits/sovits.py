@@ -82,7 +82,7 @@ class sovits(Plugin):
                     tts_model = content[len(self.tts_prefix):].strip()
                     if tts_model in self.model_list:
                         self.params_cache[user_id]['tts_model'] = tts_model
-                        tip = f"\n\n💬使用的模型为:{tts_model}"
+                        tip = f"\n\n💡{tts_model}已就位（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
                     else:
                         self.params_cache[user_id]['tts_model'] = self.tts_model
                         tip = f"\n\n💬错误的模型名称:{tts_model}，将使用默认语音模型"
@@ -91,7 +91,7 @@ class sovits(Plugin):
                     self.params_cache[user_id]['tts_model'] = self.tts_model
 
                 self.params_cache[user_id]['tts_quota'] = 1
-                reply = Reply(type=ReplyType.TEXT, content="💡已开启变声模式。请输入想要转换的文字，为保证转换效果，请不要超过30个字。"+ tip)
+                reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
@@ -99,7 +99,6 @@ class sovits(Plugin):
         self.handle_sovits(content, user_id, e_context)
 
     def handle_sovits(self, content, user_id, e_context):
-        logger.info(f"Before handle_sovits, type of e_context: {type(e_context)}")
         logger.info(f"handle_sovits, content =  {content}")
         tts_model = self.params_cache[user_id]['tts_model']
         logger.info('using tts_model=' + tts_model)
@@ -108,13 +107,9 @@ class sovits(Plugin):
         return self._reply(status, msg, id, e_context)
     
     def _reply(self, status, msg, id, e_context: EventContext):
-        logger.info(f"Before _reply, type of e_context: {type(e_context)}")
-
         if status:
             logger.info('querying task id =' + id)
             rc, rt = self.get_result(id)
-            logger.info('_reply, rc =' + rc)
-            logger.info('_reply, rt =' + str(rt))
             reply = Reply(rt, rc)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -141,12 +136,3 @@ class sovits(Plugin):
             rt = ReplyType.ERROR
             rc = "语音转换失败"
         return rc, rt
-
-    def send(rc, e_context: EventContext, rt=ReplyType.TEXT, action=EventAction.BREAK_PASS):
-        reply = Reply(rt, rc)
-        e_context["reply"] = reply
-        e_context.action = action
-        return
-    
-    def Error(self, msg, e_context: EventContext):
-        return self.send(msg, e_context, ReplyType.ERROR)
