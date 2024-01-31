@@ -125,10 +125,10 @@ class sovits(Plugin):
             rc = msg
 
         if status and filepath:
-            logger.info("getting result, status = " + status + ", file path =" + filepath)
+            logger.info('getting result, status = ' + str(status) + ', file path =' + filepath)
             rt = ReplyType.VOICE
             rc = filepath
-            
+
         if not rc:
             rt = ReplyType.ERROR
             rc = "语音转换失败"
