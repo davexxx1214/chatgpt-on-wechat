@@ -147,13 +147,19 @@ class sovits(Plugin):
         # 截取content的前10个字符
         content_prefix = cleaned_content[:10]
         
-        # 生成一个随机的4位数字
-        random_number = f"{random.randint(0, 9999):04}"
+        random_number = f"{random.randint(0, 999):03}"
         
         # 组装新的文件名，包括模型、内容和4位随机数
         new_filename = f"({model}){content_prefix}{random_number}"
 
         # 拼接回完整的新文件路径
         new_filepath = os.path.join(dir_path, new_filename + file_ext)
-        
+
+        # 重命名原文件
+        try:
+            os.rename(filepath, new_filepath)
+        except OSError as e:
+            print(f"Error: {e.strerror}")
+            return filepath
+
         return new_filepath
