@@ -99,6 +99,7 @@ class sovits(Plugin):
         self.handle_sovits(content, user_id, e_context)
 
     def handle_sovits(self, content, user_id, e_context):
+        logger.info(f"Before handle_sovits, type of e_context: {type(e_context)}")
         logger.info(f"handle_sovits, content =  {content}")
         tts_model = self.params_cache[user_id]['tts_model']
         logger.info('using tts_model=' + tts_model)
@@ -107,14 +108,21 @@ class sovits(Plugin):
         return self._reply(status, msg, id, e_context)
     
     def _reply(self, status, msg, id, e_context: EventContext):
+        logger.info(f"Before _reply, type of e_context: {type(e_context)}")
+
         if status:
             logger.info('querying task id =' + id)
             rc, rt = self.get_result(id)
             logger.info('_reply, rc =' + rc)
             logger.info('_reply, rt =' + str(rt))
-            return self.send(rc, e_context, rt)
+            reply = Reply(rt, rc)
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
         else:
-            return self.Error(msg, e_context)
+            reply.type = ReplyType.ERROR
+            reply.content = "服务暂不可用"
+            logger.error("[sovits] service exception")
+            e_context.action = EventAction.BREAK_PASS
         
     def get_result(self, id):
         status, msg, filepath = self.tts.get_tts_result(id)
@@ -133,19 +141,6 @@ class sovits(Plugin):
             rt = ReplyType.ERROR
             rc = "语音转换失败"
         return rc, rt
-
-    def send_reply(reply, e_context: EventContext, reply_type=ReplyType.TEXT):
-        if isinstance(reply, Reply):
-            if not reply.type and reply_type:
-                reply.type = reply_type
-        else:
-            reply = Reply(reply_type, reply)
-        channel = e_context['channel']
-        context = e_context['context']
-        # reply的包装步骤
-        rd = channel._decorate_reply(context, reply)
-        # reply的发送步骤
-        return channel._send_reply(context, rd)
 
     def send(rc, e_context: EventContext, rt=ReplyType.TEXT, action=EventAction.BREAK_PASS):
         reply = Reply(rt, rc)
