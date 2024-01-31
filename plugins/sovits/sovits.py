@@ -117,6 +117,7 @@ class sovits(Plugin):
             rt = "服务暂不可用"
             reply = Reply(rt, rc)
             logger.error("[sovits] service exception")
+            e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
         
     def get_result(self, id, tts_model, content):
