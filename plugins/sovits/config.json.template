@@ -1,5 +1,7 @@
 {
   "api_url":"127.0.0.1:9880",
+  "api_key":"",
   "tts_prefix":"变声",
-  "tts_model":"leixiaojun"
+  "tts_model":"leixiaojun",
+  "total_timeout":10
 }

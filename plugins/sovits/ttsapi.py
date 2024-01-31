@@ -12,6 +12,8 @@ class _ttsApi:
         }
         self.api_url = config.get("api_url", "")
         self.api_key = config.get("api_key", "")
+        self.total_timeout = config.get("total_timeout", 10)
+
 
     def subTip(self, res):
         if res.status_code == 200 or res.status_code == 201:
@@ -53,34 +55,47 @@ class _ttsApi:
             return False, "❌ 任务提交失败", None
         
     # 轮询获取任务结果
-    def get_tts_result(self, id):
+    def get_tts_result(self, task_id):
+        start_time = time.time()  # 记录开始时间
+        total_timeout = 60 * self.total_timeout  # 总超时时间
+
         try:
-            url = self.api_url + f"/task/{id}"
+            headers = {
+                'Content-Type': 'application/json',
+                'auth-key': f'Bearer {self.api_key}'
+            }
+            url = self.api_url + f"/task/{task_id}"
             content_type = ""
+
             while content_type != "audio/wav":
-                time.sleep(1)
-                res = requests.get(url, headers=self.headers, timeout=600)
-                content_type = res.headers.get('content-type')
+                # 检查是否已经超过总超时时间
+                if (time.time() - start_time) > total_timeout:
+                    logger.debug("❌ 超过最大等待时间")
+                    return False, "❌ 请求失败：超过最大等待时间", ""
                 
+                time.sleep(1)
+                res = requests.get(url, headers=headers, timeout=5) # 注意单次请求也设了超时时间
+                content_type = res.headers.get('content-type')
+
                 if content_type != "audio/wav":
                     rj = res.json()
-                    status = rj["status"]
+                    status = rj.get("status")
                     if status is not None:
                         logger.debug(f"status: {status}")
-            
+
             if content_type == "audio/wav":
                 if not os.path.exists('./tmp'):
                     os.makedirs('./tmp')
 
                 filename = f"./tmp/{str(uuid.uuid4())}.wav"
-                # 将音频文件写入磁盘
                 with open(filename, 'wb') as audio_file:
-                    for chunk in res.iter_content(chunk_size=8192): 
+                    for chunk in res.iter_content(chunk_size=8192):
                         audio_file.write(chunk)
                 msg = "变声成功,本音频素材由人工智能合成,仅供学习研究,严禁用于商业及违法途径。"
                 return True, msg, filename
             else:
-                return False, f"❌ 请求失败：服务异常", ""
+                return False, "❌ 请求失败：服务异常", ""
+        
         except Exception as e:
             logger.exception(e)
             return False, "❌ 请求失败", ""
@@ -89,7 +104,7 @@ class _ttsApi:
 #     # 你的 TTS Api 配置信息
 #     config = {
 #         "api_url": "http://localhost:9880",
-#         "api_key": "your token"
+#         "api_key": ""
 #     }
     
 #     tts_api = _ttsApi(config)
