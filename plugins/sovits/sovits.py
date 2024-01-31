@@ -111,7 +111,7 @@ class sovits(Plugin):
             logger.info('querying task id =' + id)
             rc, rt = self.get_result(id)
             logger.info('_reply, rc =' + rc)
-            logger.info('_reply, rt =' + rt)
+            logger.info('_reply, rt =' + str(rt))
             return self.send(rc, e_context, rt)
         else:
             return self.Error(msg, e_context)
@@ -122,9 +122,13 @@ class sovits(Plugin):
         rc = msg
         if not status:
             rt = ReplyType.ERROR
+            rc = msg
+
         if status and filepath:
+            logger.info("getting result, status = " + status + ", file path =" + filepath)
             rt = ReplyType.VOICE
             rc = filepath
+            
         if not rc:
             rt = ReplyType.ERROR
             rc = "语音转换失败"
@@ -146,10 +150,10 @@ class sovits(Plugin):
     def send(reply, e_context: EventContext, reply_type=ReplyType.TEXT, action=EventAction.BREAK_PASS):
         if isinstance(reply, Reply):
             if not reply.type and reply_type:
-                logger.info('setting reply, reply_type =' + reply_type)
+                logger.info('setting reply, reply_type =' + str(reply_type))
                 reply.type = reply_type
         else:
-            logger.info('sending reply, reply_type =' + reply_type)
+            logger.info('sending reply, reply_type =' + str(reply_type))
             reply = Reply(reply_type, reply)
         e_context["reply"] = reply
         e_context.action = action

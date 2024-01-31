@@ -74,7 +74,7 @@ class _ttsApi:
                     return False, "❌ 请求失败：超过最大等待时间", ""
                 
                 time.sleep(1)
-                res = requests.get(url, headers=headers, timeout=5) # 注意单次请求也设了超时时间
+                res = requests.get(url, headers=headers, timeout=60) # 注意单次请求也设了超时时间
                 content_type = res.headers.get('content-type')
 
                 if content_type != "audio/wav":
