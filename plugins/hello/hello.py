@@ -42,7 +42,7 @@ class Hello(Plugin):
                 return
             e_context["context"].type = ContextType.TEXT
             msg: ChatMessage = e_context["context"]["msg"]
-            e_context["context"].content = f'请你随机使用一种风格说一句问候语来欢迎新用户"{msg.actual_user_nickname}"加入群聊。'
+            e_context["context"].content = f'请你随机使用一种风格说一句问候语来欢迎新用户"{msg.actual_user_nickname}"加入群聊，同时介绍一下自己的功能。'
             e_context.action = EventAction.BREAK  # 事件结束，进入默认处理逻辑
             if not self.config or not self.config.get("use_character_desc"):
                 e_context["context"]["generate_breaked_by"] = EventAction.BREAK
