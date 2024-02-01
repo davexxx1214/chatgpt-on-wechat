@@ -107,7 +107,11 @@ class LinkAIBot(Bot):
                             body["group_name"] = context.kwargs.get("msg").from_user_nickname
                             body["sender_name"] = context.kwargs.get("msg").actual_user_nickname
                         else:
-                            body["sender_name"] = context.kwargs.get("msg").from_user_nickname
+                            if body.get("channel_type") in ["wechatcom_app"]:
+                                body["sender_name"] = context.kwargs.get("msg").from_user_id
+                            else:
+                                body["sender_name"] = context.kwargs.get("msg").from_user_nickname
+
             except Exception as e:
                 pass
             file_id = context.kwargs.get("file_id")
@@ -386,8 +390,14 @@ class LinkAIBot(Bot):
     def _send_image(self, channel, context, image_urls):
         if not image_urls:
             return
+        max_send_num = conf().get("max_media_send_count")
+        send_interval = conf().get("media_send_interval")
         try:
+            i = 0
             for url in image_urls:
+                if max_send_num and i >= max_send_num:
+                    continue
+                i += 1
                 if url.endswith(".mp4"):
                     reply_type = ReplyType.VIDEO_URL
                 elif url.endswith(".pdf") or url.endswith(".doc") or url.endswith(".docx"):
@@ -399,6 +409,8 @@ class LinkAIBot(Bot):
                     reply_type = ReplyType.IMAGE_URL
                 reply = Reply(reply_type, url)
                 channel.send(reply, context)
+                if send_interval:
+                    time.sleep(send_interval)
         except Exception as e:
             logger.error(e)
 
