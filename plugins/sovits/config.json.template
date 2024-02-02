@@ -2,6 +2,14 @@
   "api_url":"127.0.0.1:9880",
   "api_key":"",
   "tts_prefix":"变声",
-  "tts_model":"leixiaojun",
+  "model_list" : ["雷总", "华仔","志玲姐","雷电","小新","老郭"],
+  "model_mappings": {
+    "雷总": "leijun",
+    "华仔": "liudehua",
+    "志玲姐": "linzhiling",
+    "雷电": "leidianjiangjun",
+    "小新": "labixiaoxin",
+    "老郭": "guodegang"
+  },
   "total_timeout":10
 }

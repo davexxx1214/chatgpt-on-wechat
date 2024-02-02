@@ -43,6 +43,7 @@ class sovits(Plugin):
             self.tts_prefix = self.config.get("tts_prefix","变声")
             self.tts_model = self.config.get("tts_model","default")
             self.model_list = self.config.get("model_list", "[]")
+            self.model_mappings = self.config.get("model_mappings", "[]")
             self.params_cache = ExpiredDict(500)
             # 初始化成功日志
             logger.info("[sovits] inited.")
@@ -76,20 +77,21 @@ class sovits(Plugin):
                 pattern = self.tts_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
                 model_str = ",".join(self.model_list)
-                tip = f"\n未检测到模型名称，将使用系统默认模型。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
+                tip = f"\n未检测到模型名称。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
                 if match:
                     tts_model = content[len(self.tts_prefix):].strip()
                     if tts_model in self.model_list:
-                        self.params_cache[user_id]['tts_model'] = tts_model
+                        real_model = self.model_mappings.get(tts_model)
+                        self.params_cache[user_id]['tts_model'] = real_model
+                        self.params_cache[user_id]['tts_quota'] = 1
                         tip = f"💡{tts_model}已就位（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
                     else:
-                        self.params_cache[user_id]['tts_model'] = self.tts_model
-                        tip = f"💬错误的模型名称:{tts_model}，将使用默认语音模型（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
+                        tip = f"💬错误的模型名称:{tts_model}，\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
                     
                 else:
                     self.params_cache[user_id]['tts_model'] = self.tts_model
 
-                self.params_cache[user_id]['tts_quota'] = 1
+                
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
