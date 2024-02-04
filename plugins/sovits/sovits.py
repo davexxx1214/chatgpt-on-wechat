@@ -76,8 +76,11 @@ class sovits(Plugin):
                 # Call new function to handle search operation
                 pattern = self.tts_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                model_str = ",".join(self.model_list)
-                tip = f"\n未检测到模型名称。\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
+                # 每隔5个模型名称插入一个换行符
+                model_str = ",\n".join(
+                    ", ".join(self.model_list[i:i + 5]) for i in range(0, len(self.model_list), 5)
+                )
+                tip = f"💡欢迎使用变声服务，变声指令格式为\n\n{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：{model_str}"
                 if match:
                     tts_model = content[len(self.tts_prefix):].strip()
                     if tts_model in self.model_list:
@@ -86,7 +89,7 @@ class sovits(Plugin):
                         self.params_cache[user_id]['tts_quota'] = 1
                         tip = f"💡{tts_model}已就位（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
                     else:
-                        tip = f"💬错误的模型名称:{tts_model}，\n\n💬自定义提示词的格式为：{self.tts_prefix}+空格+模型名称\n\n当前可用模型为：{model_str}"
+                        tip = f"❌错误的模型名称:{tts_model}，\n\n💡变声指令格式为：{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：{model_str}"
                     
                 else:
                     self.params_cache[user_id]['tts_model'] = self.tts_model
