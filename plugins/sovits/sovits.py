@@ -76,11 +76,8 @@ class sovits(Plugin):
                 # Call new function to handle search operation
                 pattern = self.tts_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                # 每隔5个模型名称插入一个换行符
-                model_str = ",\n".join(
-                    ", ".join(self.model_list[i:i + 5]) for i in range(0, len(self.model_list), 5)
-                )
-                tip = f"💡欢迎使用变声服务，变声指令格式为\n\n{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：{model_str}"
+                model_str = ",".join(self.model_list)
+                tip = f"💡欢迎使用变声服务，变声指令格式为:\n\n{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：\n{model_str}"
                 if match:
                     tts_model = content[len(self.tts_prefix):].strip()
                     if tts_model in self.model_list:
