@@ -67,9 +67,14 @@ class sovits(Plugin):
 
         if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
             logger.info('符合转换条件，开始转换')
-            self.params_cache[user_id]['tts_quota'] = 0
-            self.call_service(content, user_id, e_context)
-            return
+            if content.length > 50:
+                reply = Reply(type=ReplyType.TEXT, content= '错误！转换文本不能超过50个字')
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                self.params_cache[user_id]['tts_quota'] = 0
+                self.call_service(content, user_id, e_context)
+                return
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.tts_prefix):
@@ -115,7 +120,7 @@ class sovits(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
         else:
-            rc= ReplyType.ERROR
+            rc= ReplyType.TEXT
             rt = "服务暂不可用"
             reply = Reply(rt, rc)
             logger.error("[sovits] service exception")
