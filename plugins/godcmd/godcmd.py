@@ -272,7 +272,7 @@ class Godcmd(Plugin):
                         if args[0] not in const.MODEL_LIST:
                             ok, result = False, "模型名称不存在"
                         else:
-                            conf()["model"] = args[0]
+                            conf()["model"] = self.model_mapping(args[0])
                             Bridge().reset_bot()
                             model = conf().get("model") or const.GPT35
                             ok, result = True, "模型设置为: " + str(model)
@@ -469,3 +469,17 @@ class Godcmd(Plugin):
         if context["isgroup"]:
             return context.kwargs.get("msg").actual_user_id in global_config["admin_users"]
         return False
+
+
+    def model_mapping(self, model) -> str:
+        if model == "gpt-4-turbo":
+            return const.GPT4_TURBO_PREVIEW
+        return model
+
+    def reload(self):
+        gconf = plugin_config[self.name]
+        if gconf:
+            if gconf.get("password"):
+                self.password = gconf["password"]
+            if gconf.get("admin_users"):
+                self.admin_users = gconf["admin_users"]
