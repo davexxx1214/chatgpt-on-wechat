@@ -1,0 +1,4 @@
+{
+  "exclude_commands" : ["变声"],
+  "check_group_names": ["测试群"]
+}
