@@ -121,8 +121,8 @@ class sovits(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
         else:
-            rc= ReplyType.TEXT
-            rt = "服务暂不可用"
+            rc= "服务暂不可用"
+            rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[sovits] service exception")
             e_context["reply"] = reply
