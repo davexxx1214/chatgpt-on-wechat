@@ -104,10 +104,7 @@ class Langchain(Plugin):
         else:
             logger.info("Found in local vector store, continue...");
             prompt = e_context["context"].content + '''
-            如果上下文中包含JSON格式，那么里面的条目代表店铺的具体信息，条目之间相互独立。
-            其中name代表店铺名称，"人均"代表人均消费，recommend代表该店铺的推荐菜的列表，
-            address代表店铺地址，tel代表店铺电话，comment代表用户评价。
-            不要开场白直接回答问题，并优先从以下内容中寻找到答案：
+            结合上下文，请优先尝试从以下内容中寻找到答案：
              
             ''' + docs[0][0].page_content
             e_context["context"].type = ContextType.TEXT
