@@ -8,9 +8,9 @@ from bridge.context import ContextType
 from common.log import logger
 from plugins import *
 
-import pinecone
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import Pinecone
+from pinecone import Pinecone
+from langchain_community.vectorstores import Pinecone as PineconeStore
+from langchain_community.embeddings.openai import OpenAIEmbeddings
 
 @plugins.register(
     name="Langchain",
@@ -71,11 +71,10 @@ class Langchain(Plugin):
         
         
         try:
-            pinecone.init(
-                api_key=self.pinecone_api_key,
-                environment=self.pinecone_environment  # find next to API key in console
-            )
-            index = pinecone.Index(index_name=self.pinecone_index_name)
+            pc = Pinecone(api_key=self.pinecone_api_key)
+            index_name = self.pinecone_index_name
+            index = pc.Index(index_name)
+
             embed = OpenAIEmbeddings(
                 model=self.openai_model_name,
                 deployment=self.openai_model_name,
@@ -84,8 +83,8 @@ class Langchain(Plugin):
                 openai_api_version=self.openai_api_version,
                 openai_api_type=self.openai_api_type
             )
-            vectorstore = Pinecone(
-                index, embed.embed_query, 'text',namespace=self.pinecone_name_space
+            vectorstore = PineconeStore(
+                index, embed, 'text',namespace=self.pinecone_name_space
             )
             docs = vectorstore.similarity_search_with_score(
                 content,  # our search query
@@ -109,7 +108,7 @@ class Langchain(Plugin):
             ''' + docs[0][0].page_content
             e_context["context"].type = ContextType.TEXT
             e_context["context"].content = prompt.replace("\n", "")
-            logger.debug("prompt is : %s " % prompt);
+            logger.debug("prompt is : %s " % prompt)
 
             e_context.action = EventAction.CONTINUE
         
