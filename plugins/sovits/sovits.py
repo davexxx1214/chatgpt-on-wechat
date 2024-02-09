@@ -82,7 +82,7 @@ class sovits(Plugin):
                 # Call new function to handle search operation
                 pattern = self.tts_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                model_str = ",".join(self.model_list)
+                model_str = "\n".join(self.model_list)
                 tip = f"💡欢迎使用变声服务，变声指令格式为:\n\n{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：\n{model_str}"
                 if match:
                     tts_model = content[len(self.tts_prefix):].strip()
