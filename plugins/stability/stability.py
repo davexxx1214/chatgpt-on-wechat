@@ -96,7 +96,7 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
-            if self.params_cache[user_id]['image_sum_quota'] < 1:
+            if self.params_cache[user_id]['inpaint_quota'] < 1:
                 logger.info("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
 
