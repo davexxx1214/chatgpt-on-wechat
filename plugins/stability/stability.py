@@ -72,7 +72,6 @@ class stability(Plugin):
                 # Call new function to handle search operation
                 pattern = self.inpaint_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                tip = f"💡欢迎使用修图服务，修图指令格式为:\n\n{self.inpaint_prefix}+空格+把xxx替换成yyy\n例如:修图 把狗替换成猫"
                 if match:
                     query = content[len(self.inpaint_prefix):].strip()
                     pattern = r"把(.*?)替换成([^，。,.!?;:\s]*).*"
@@ -85,10 +84,13 @@ class stability(Plugin):
                         logger.info(f"search_prompt  =  {search_prompt}")
                         logger.info(f"prompt =  {prompt}" )
                         self.params_cache[user_id]['inpaint_quota'] = 1
+                        tip = f"💡已经开启修图服务，请再发送一张图片进行处理"
 
                     else:
                         tip = f"❌错误的命令\n\n💡修图指令格式为:\n\n{self.inpaint_prefix}+空格+把xxx替换成yyy\n例如:修图 把狗替换成猫"
-                
+                else:
+                    tip = f"💡欢迎使用修图服务，修图指令格式为:\n\n{self.inpaint_prefix}+空格+把xxx替换成yyy\n例如:修图 把狗替换成猫"
+
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
