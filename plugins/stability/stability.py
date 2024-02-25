@@ -76,24 +76,41 @@ class stability(Plugin):
                 # Call new function to handle search operation
                 pattern = self.inpaint_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                if match:
+                if match: ##   匹配上了中文的描述
                     query = content[len(self.inpaint_prefix):].strip()
                     pattern = r"把(.*?)替换成([^，。,.!?;:\s]*).*"
                     match = re.search(pattern, query)
                     if match:
                         search_prompt = match[1].strip()
                         prompt = match[2].strip()
-                        self.params_cache[user_id]['search_prompt'] = search_prompt
-                        self.params_cache[user_id]['prompt'] = prompt
+                        
                         logger.info(f"search_prompt={search_prompt}")
                         logger.info(f"prompt={prompt}" )
+
+                        search_prompt = self.translate_to_english(search_prompt)
+                        logger.info(f"translate search_prompt to : {search_prompt}")
+                        prompt = self.translate_to_english(prompt)
+                        logger.info(f"translate search_prompt to : {prompt}")
+                        self.params_cache[user_id]['search_prompt'] = search_prompt
+                        self.params_cache[user_id]['prompt'] = prompt
                         self.params_cache[user_id]['inpaint_quota'] = 1
                         tip = f"💡已经开启修图服务，请再发送一张图片进行处理"
 
                     else:
-                        tip = f"❌错误的命令\n\n💡修图指令格式为:\n\n{self.inpaint_prefix}+空格+把xxx替换成yyy\n例如:修图 把狗替换成猫"
+                        pattern = re.compile(r'replace (.*?) to (.*?)\.')
+                        match = pattern.search(query)
+                        if match is None:
+                            tip = f"❌错误的命令\n\n💡修图指令格式为:\n\n{self.inpaint_prefix}+ 空格 + 把xxx替换成yyy\n{self.inpaint_prefix}+ 空格 + replace xxx to yyy\n例如:修图 把狗替换成猫\n修图 replace water to sand"
+                        else:
+                            search_prompt, prompt = match.groups()
+                            logger.info(f"search_prompt={search_prompt}")
+                            logger.info(f"prompt={prompt}" )
+                            self.params_cache[user_id]['search_prompt'] = search_prompt
+                            self.params_cache[user_id]['prompt'] = prompt
+                            self.params_cache[user_id]['inpaint_quota'] = 1
+                            tip = f"💡已经开启修图服务，请再发送一张图片进行处理"
                 else:
-                    tip = f"💡欢迎使用修图服务，修图指令格式为:\n\n{self.inpaint_prefix}+空格+把xxx替换成yyy\n例如:修图 把狗替换成猫"
+                    tip = f"💡欢迎使用修图服务，修图指令格式为:\n\n{self.inpaint_prefix}+ 空格 + 把xxx替换成yyy\n{self.inpaint_prefix}+ 空格 + replace xxx to yyy\n例如:修图 把狗替换成猫\n修图 replace water to sand"
 
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
@@ -124,11 +141,7 @@ class stability(Plugin):
 
         search_prompt = self.params_cache[user_id]['search_prompt']
         prompt = self.params_cache[user_id]['prompt']
-        search_prompt = self.translate_to_english(search_prompt)
-        logger.info(f"translate search_prompt to : {search_prompt}")
-
-        prompt = self.translate_to_english(prompt)
-        logger.info(f"translate search_prompt to : {prompt}")
+        
 
         response = requests.post(
             f"{self.inpaint_url}",
@@ -169,15 +182,7 @@ class stability(Plugin):
             logger.error("[stability] service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
-    
-    def is_chinese(self, text):
-        try:
-            lang = detect(text)
-            print(lang)
-            return lang == 'zh-cn' or lang == 'zh-tw'
-        except:
-            return False
-    
+
     def translate_to_english(self, text):
         translator = Translator(service_urls=['translate.google.com'])
         translation = translator.translate(text, dest='en')
