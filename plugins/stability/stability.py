@@ -76,11 +76,11 @@ class stability(Plugin):
                 # Call new function to handle search operation
                 pattern = self.inpaint_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
-                if match: ##   匹配上了中文的描述
+                if match: ##   匹配上了修图的指令
                     query = content[len(self.inpaint_prefix):].strip()
                     pattern = r"把(.*?)替换成([^，。,.!?;:\s]*).*"
                     match = re.search(pattern, query)
-                    if match:
+                    if match: ##   匹配上了中文的描述
                         search_prompt = match[1].strip()
                         prompt = match[2].strip()
                         
@@ -98,10 +98,11 @@ class stability(Plugin):
 
                     else:
                         pattern = re.compile(r'replace (.*?) to (.*?)\.')
+                        logger.info(f"query={query}")
                         match = pattern.search(query)
                         if match is None:
-                            tip = f"❌错误的命令\n\n💡修图指令格式为:\n\n{self.inpaint_prefix}+ 空格 + 把xxx替换成yyy\n{self.inpaint_prefix}+ 空格 + replace xxx to yyy\n例如:修图 把狗替换成猫\n修图 replace water to sand"
-                        else:
+                            tip = f"❌错误的命令\n\n💡修图指令格式为:\n\n{self.inpaint_prefix}+ 空格 + 把xxx替换成yyy\n{self.inpaint_prefix}+ 空格 + replace xxx to yyy\n例如:修图 把狗替换成猫\n或者:修图 replace water to sand"
+                        else:  ##   匹配上了英文的描述
                             search_prompt, prompt = match.groups()
                             logger.info(f"search_prompt={search_prompt}")
                             logger.info(f"prompt={prompt}" )
@@ -110,7 +111,7 @@ class stability(Plugin):
                             self.params_cache[user_id]['inpaint_quota'] = 1
                             tip = f"💡已经开启修图服务，请再发送一张图片进行处理"
                 else:
-                    tip = f"💡欢迎使用修图服务，修图指令格式为:\n\n{self.inpaint_prefix}+ 空格 + 把xxx替换成yyy\n{self.inpaint_prefix}+ 空格 + replace xxx to yyy\n例如:修图 把狗替换成猫\n修图 replace water to sand"
+                    tip = f"💡欢迎使用修图服务，修图指令格式为:\n\n{self.inpaint_prefix}+ 空格 + 把xxx替换成yyy\n{self.inpaint_prefix}+ 空格 + replace xxx to yyy\n例如:修图 把狗替换成猫\n或者:修图 replace water to sand"
 
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
