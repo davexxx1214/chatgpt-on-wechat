@@ -163,7 +163,7 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
         else:
-            rc= "服务暂不可用"
+            rc= "服务暂不可用,可能是某些关键字没有通过安全审查"
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] service exception")
