@@ -156,7 +156,7 @@ class SDWebUI(Plugin):
             return help_text
         
         help_text += f"使用方法:\n使用\"{trigger}[风格]:提示语\"的格式作画，如\"{trigger}film:cat\"\n"
-        help_text += "如果没有指定风格，则默认使用万象熔炉AnythingV5作为checkpoint.\n"
+        help_text += "如果没有指定风格，则默认使用sd_xl_turbo(快速的作图模型)作为checkpoint.\n"
         help_text += "目前可用关键词：\n"
         for rule in self.rules:
             keywords = [f"[{keyword}]" for keyword in rule['keywords']]
