@@ -37,7 +37,6 @@ class stability(Plugin):
                 if not self.config:
                     raise Exception("config.json not found")
             
-            self.tts = _ttsApi(self.config)
             # 设置事件处理函数
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             # 从配置中提取所需的设置
