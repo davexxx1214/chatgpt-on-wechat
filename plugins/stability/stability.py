@@ -12,6 +12,8 @@ from common.tmp_dir import TmpDir
 import os
 import requests
 import uuid
+import io
+from PIL import Image
 
 @plugins.register(
     name="stability",
@@ -138,10 +140,20 @@ class stability(Plugin):
                 file.write(response.content)
             
             rt = ReplyType.IMAGE
-            rc = response.content
-            reply = Reply(rt, rc)
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
+
+            image = self.img_to_jpeg(response.content)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
         else:
             rc= "服务暂不可用"
             rt = ReplyType.TEXT
@@ -149,4 +161,15 @@ class stability(Plugin):
             logger.error("[stability] service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
+    
+    def img_to_jpeg(self, content):
+        try:
+            image = io.BytesIO()
+            idata = Image.open(io.BytesIO(content))
+            idata = idata.convert("RGB")
+            idata.save(image, format="JPEG")
+            return image
+        except Exception as e:
+            logger.error(e)
+            return False
    
