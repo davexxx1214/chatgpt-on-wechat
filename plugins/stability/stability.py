@@ -138,7 +138,7 @@ class stability(Plugin):
                 file.write(response.content)
             
             rt = ReplyType.IMAGE
-            rc = imgpath
+            rc = response.content
             reply = Reply(rt, rc)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
