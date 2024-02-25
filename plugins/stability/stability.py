@@ -82,8 +82,8 @@ class stability(Plugin):
                         prompt = match[2].strip()
                         self.params_cache[user_id]['search_prompt'] = search_prompt
                         self.params_cache[user_id]['prompt'] = prompt
-                        logger.info("search_prompt  =  {search_prompt}")
-                        logger.info("prompt =  {prompt}" )
+                        logger.info(f"search_prompt  =  {search_prompt}")
+                        logger.info(f"prompt =  {prompt}" )
                         self.params_cache[user_id]['inpaint_quota'] = 1
 
                     else:
