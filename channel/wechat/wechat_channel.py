@@ -210,7 +210,7 @@ class WechatChannel(ChatChannel):
     def send(self, reply: Reply, context: Context):
         receiver = context["receiver"]
         if reply.type == ReplyType.TEXT:
-            key_words = ["付费","买","客服","合作"]
+            key_words = ["付费","买","客服","合作","商务","价格"]
             key_suffix = "@涂意 @张小军"
             res_content = reply.content
             if any(word in res_content for word in key_words):
