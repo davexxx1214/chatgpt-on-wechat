@@ -97,7 +97,7 @@ class stability(Plugin):
                         tip = f"💡已经开启修图服务，请再发送一张图片进行处理"
 
                     else:
-                        pattern = re.compile(r'replace (.*?) to (.*?)\.')
+                        pattern = re.compile(r'replace (.*?) to (.*?)$')
                         logger.info(f"query={query}")
                         match = pattern.search(query)
                         if match is None:
