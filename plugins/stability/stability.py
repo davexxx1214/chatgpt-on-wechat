@@ -8,6 +8,8 @@ from plugins import *
 from common.log import logger
 from common.expired_dict import ExpiredDict
 from common.tmp_dir import TmpDir
+from googletrans import Translator
+from langdetect import detect
 
 import os
 import requests
@@ -122,6 +124,14 @@ class stability(Plugin):
 
         search_prompt = self.params_cache[user_id]['search_prompt']
         prompt = self.params_cache[user_id]['prompt']
+        if self.is_chinese(search_prompt):
+            search_prompt = self.translate_to_english(search_prompt)
+            logger.info(f"translate search_prompt to : {search_prompt}")
+
+        if self.is_chinese(prompt):
+            prompt = self.translate_to_english(prompt)
+            logger.info(f"translate search_prompt to : {prompt}")
+
         response = requests.post(
             f"{self.inpaint_url}",
             headers={"authorization": f"Bearer {self.api_key}"},
@@ -162,6 +172,20 @@ class stability(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
     
+    def is_chinese(self, text):
+        try:
+            lang = detect(text)
+            print(lang)
+            return lang == 'zh-cn' or lang == 'zh-tw'
+        except:
+            return False
+    
+    def translate_to_english(self, text):
+        translator = Translator(service_urls=['translate.google.com'])
+        translation = translator.translate(text, dest='en')
+        return translation.text
+
+
     def img_to_jpeg(self, content):
         try:
             image = io.BytesIO()
