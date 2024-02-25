@@ -85,8 +85,8 @@ class stability(Plugin):
                         prompt = match[2].strip()
                         self.params_cache[user_id]['search_prompt'] = search_prompt
                         self.params_cache[user_id]['prompt'] = prompt
-                        logger.info(f"search_prompt  =  {search_prompt}")
-                        logger.info(f"prompt =  {prompt}" )
+                        logger.info(f"search_prompt={search_prompt}")
+                        logger.info(f"prompt={prompt}" )
                         self.params_cache[user_id]['inpaint_quota'] = 1
                         tip = f"💡已经开启修图服务，请再发送一张图片进行处理"
 
@@ -124,13 +124,11 @@ class stability(Plugin):
 
         search_prompt = self.params_cache[user_id]['search_prompt']
         prompt = self.params_cache[user_id]['prompt']
-        if self.is_chinese(search_prompt):
-            search_prompt = self.translate_to_english(search_prompt)
-            logger.info(f"translate search_prompt to : {search_prompt}")
+        search_prompt = self.translate_to_english(search_prompt)
+        logger.info(f"translate search_prompt to : {search_prompt}")
 
-        if self.is_chinese(prompt):
-            prompt = self.translate_to_english(prompt)
-            logger.info(f"translate search_prompt to : {prompt}")
+        prompt = self.translate_to_english(prompt)
+        logger.info(f"translate search_prompt to : {prompt}")
 
         response = requests.post(
             f"{self.inpaint_url}",
