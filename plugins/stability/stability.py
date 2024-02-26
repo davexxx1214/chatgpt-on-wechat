@@ -286,7 +286,7 @@ class stability(Plugin):
             url = f"{self.upscale_url}/result/{task_id}"
             status_code = -1
 
-            while  status_code != 200:
+            while  status_code != 200 or status_code != 403:
                 # 检查是否已经超过总超时时间
                 if (time.time() - start_time) > total_timeout:
                     logger.debug("❌ 超过最大等待时间")
@@ -304,6 +304,8 @@ class stability(Plugin):
                 logger.info(f"imgpath = {imgpath}")
                 msg = "图片高清化成功"
                 return True, msg, response.content
+            elif status_code == 403:
+                return False, "请求失败，可能是某些关键字没有通过安全审查", ""
             else:
                 return False, "❌ 请求失败：服务异常", ""
         
