@@ -286,16 +286,17 @@ class stability(Plugin):
             url = f"{self.upscale_url}/result/{task_id}"
             status_code = -1
 
-            while  status_code != 200 or status_code != 403:
+            while  status_code != 200 and status_code != 403:
                 # 检查是否已经超过总超时时间
                 if (time.time() - start_time) > total_timeout:
                     logger.debug("❌ 超过最大等待时间")
                     return False, "❌ 请求失败：超过最大等待时间", ""
                 
                 time.sleep(5)
-                logger.info(f"正在查询任务，id = {task_id}")
                 response = requests.get(url, headers=headers, timeout=60) # 注意单次请求也设了超时时间
                 status_code = response.status_code
+                logger.info(f"正在查询任务，id = {task_id}, status code = {status_code}")
+
 
             if status_code == 200:
                 imgpath = TmpDir().path() + "upscale" + str(uuid.uuid4()) + ".jpg" 
