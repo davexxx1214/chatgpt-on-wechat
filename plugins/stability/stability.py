@@ -234,7 +234,7 @@ class stability(Plugin):
         )
 
         if response.json().get('errors') is not None:
-            rc= response.json().get('errors')
+            rc= "图片高清化失败,可能是图片分辨率太高"
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] upscale service exception")
@@ -293,6 +293,7 @@ class stability(Plugin):
                     return False, "❌ 请求失败：超过最大等待时间", ""
                 
                 time.sleep(5)
+                logger.info(f"正在查询任务，id = {task_id}")
                 response = requests.get(url, headers=headers, timeout=60) # 注意单次请求也设了超时时间
                 status_code = response.status_code
 
