@@ -121,7 +121,7 @@ class stability(Plugin):
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
-                
+
             elif content.startswith(self.upscale_prefix):
                 # Call new function to handle search operation
                 pattern = self.upscale_prefix + r"\s(.+)"
@@ -244,16 +244,16 @@ class stability(Plugin):
         elif response.json().get('id') is not None:
             task_id = response.json().get('id')
             logger.info(f"task id = {task_id}")
-            status, msg, filepath = self.get_upscale_result(task_id)
+            status, msg, imgcontent = self.get_upscale_result(task_id)
             rt = ReplyType.TEXT
             rc = msg
             if not status:
                 rt = ReplyType.ERROR
                 rc = msg
 
-            if status and filepath:
+            if status and imgcontent:
                 rt = ReplyType.IMAGE
-                image = self.img_to_jpeg(response.content)
+                image = self.img_to_jpeg(imgcontent)
                 rc = image
                 
 
@@ -302,7 +302,7 @@ class stability(Plugin):
                     file.write(response.content)
                 logger.info(f"imgpath = {imgpath}")
                 msg = "图片高清化成功"
-                return True, msg, imgpath
+                return True, msg, response.content
             else:
                 return False, "❌ 请求失败：服务异常", ""
         
