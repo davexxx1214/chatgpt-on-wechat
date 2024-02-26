@@ -139,8 +139,9 @@ class stability(Plugin):
                 match = re.match(pattern, content)
                 if match: ##   匹配上了upscale的指令
                     upscale_prompt = content[len(self.upscale_prefix):].strip()
-                    upscale_prompt = self.translate_to_english(upscale_prompt)
-                    logger.info(f"translate upscale_prompt to : {upscale_prompt}")
+                    if self.is_chinese(upscale_prompt):
+                        upscale_prompt = self.translate_to_english(upscale_prompt)
+                    logger.info(f"upscale_prompt = : {upscale_prompt}")
 
                     self.params_cache[user_id]['upscale_prompt'] = upscale_prompt
                     self.params_cache[user_id]['upscale_quota'] = 1
@@ -383,12 +384,9 @@ class stability(Plugin):
             return False
 
     def translate_to_english(self, text):
-        if self.is_chinese(text):
-            translator = Translator(service_urls=['translate.google.com'])
-            translation = translator.translate(text, dest='en')
-            return translation.text
-        else:
-            return text
+        translator = Translator(service_urls=['translate.google.com'])
+        translation = translator.translate(text, dest='en')
+        return translation.text
 
     def img_to_jpeg(self, content):
         try:
