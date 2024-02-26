@@ -48,7 +48,9 @@ class stability(Plugin):
             self.inpaint_url = self.config.get("inpaint_url","")
             self.inpaint_prefix = self.config.get("inpaint_prefix","修图")
             self.upscale_url = self.config.get("upscale_url","")
-            self.upscale_prefix = self.config.get("upscale_prefix","高清化")
+            self.upscale_prefix = self.config.get("upscale_prefix","图片高清化")
+            self.repair_url = self.config.get("repair_url","")
+            self.repair_prefix = self.config.get("repair_prefix","图片修复")
             self.api_key = self.config.get("api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
@@ -74,6 +76,8 @@ class stability(Plugin):
             self.params_cache[user_id]['prompt'] = None
             self.params_cache[user_id]['upscale_quota'] = 0
             self.params_cache[user_id]['upscale_prompt'] = None
+            self.params_cache[user_id]['repair_quota'] = 0
+
             logger.info('Added new user to params_cache. user id = ' + user_id)
 
         if e_context['context'].type == ContextType.TEXT:
@@ -122,6 +126,13 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
+            elif content.startswith(self.repair_prefix):
+                self.params_cache[user_id]['repair_quota'] = 1
+                tip = f"💡已经开启图片修复服务，请再发送一张图片进行处理(分辨率小于1024*1024)"
+                reply = Reply(type=ReplyType.TEXT, content= tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+
             elif content.startswith(self.upscale_prefix):
                 # Call new function to handle search operation
                 pattern = self.upscale_prefix + r"\s(.+)"
@@ -143,7 +154,7 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
-            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1:
+            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] and self.params_cache[user_id]['repair_quota'] < 1:
                 logger.info("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
 
@@ -159,6 +170,10 @@ class stability(Plugin):
             if self.params_cache[user_id]['upscale_quota'] > 0:
                 self.params_cache[user_id]['upscale_quota'] = 0
                 self.call_upscale_service(image_path, user_id, e_context)
+
+            if self.params_cache[user_id]['repair_quota'] > 0:
+                self.params_cache[user_id]['repair_quota'] = 0
+                self.call_repair_service(image_path, user_id, e_context)
 
             # 删除文件
             os.remove(image_path)
@@ -208,6 +223,51 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
         else:
             rc= "服务暂不可用,可能是某些关键字没有通过安全审查"
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def call_repair_service(self, image_path, user_id, e_context):
+        logger.info(f"calling repair service")
+
+        response = requests.post(
+            f"{self.repair_url}",
+            headers={
+                "Accept": "image/png",
+                "Authorization": f"Bearer {self.api_key}"
+            },
+            files={
+                "image": open(image_path, "rb")
+            },
+            data={
+                "width": 1024,
+            }
+        )
+
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "repair" + str(uuid.uuid4()) + ".png" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
+
+            image = self.img_to_jpeg(response.content)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] repair service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            rc= "服务暂不可用,可能是图片分辨率太高"
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] service exception")
