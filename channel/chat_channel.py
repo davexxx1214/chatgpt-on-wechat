@@ -109,6 +109,11 @@ class ChatChannel(Channel):
                             content = content.replace(match_prefix, "", 1).strip()
                     if context["msg"].is_at:
                         nick_name = context["msg"].actual_user_nickname
+                        logger.info("f[WX]nick_name = {nick_name}")
+                        for black_name in nick_name_black_list:
+                            logger.info("f[WX]black name = {black_name}")
+                        logger.info("f[WX]self message skipped")
+
                         if nick_name and nick_name in nick_name_black_list:
                             # 黑名单过滤
                             logger.warning(f"[WX] Nickname {nick_name} in In BlackList, ignore")
