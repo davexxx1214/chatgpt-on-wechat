@@ -3,7 +3,7 @@ import requests
 response = requests.post(
     f"https://api.stability.ai/v2alpha/generation/stable-image/upscale",
     headers={
-        "authorization": f"Bearer sk-cLs0cQbfHs4xPttTgTjULZu2X1a1N15QxIfQvDlsHGVBpxN2"
+        "authorization": f"Bearer sk-xxx"
     },
     files={
         "image": open("./5.jpg", "rb")
