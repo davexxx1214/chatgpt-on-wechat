@@ -67,8 +67,8 @@ class sovits(Plugin):
 
         if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
             logger.info('符合转换条件，开始转换')
-            if len(content) > 50:
-                error_tip = f"❌转换文本不能超过50个字"
+            if len(content) > 200:
+                error_tip = f"❌转换文本不能超过200个字"
                 reply = Reply(type=ReplyType.TEXT, content= error_tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
