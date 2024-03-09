@@ -136,12 +136,12 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
-            elif content.startswith(self.rmbg_prefix):
-                self.params_cache[user_id]['rmbg_quota'] = 1
-                tip = f"💡已经开启图片消除背景服务，请再发送一张图片进行处理"
-                reply = Reply(type=ReplyType.TEXT, content= tip)
-                e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
+            # elif content.startswith(self.rmbg_prefix):
+            #     self.params_cache[user_id]['rmbg_quota'] = 1
+            #     tip = f"💡已经开启图片消除背景服务，请再发送一张图片进行处理"
+            #     reply = Reply(type=ReplyType.TEXT, content= tip)
+            #     e_context["reply"] = reply
+            #     e_context.action = EventAction.BREAK_PASS
 
             elif content.startswith(self.upscale_prefix):
                 # Call new function to handle search operation
