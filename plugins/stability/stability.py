@@ -17,6 +17,7 @@ import requests
 import uuid
 import io
 from PIL import Image
+from rembg import remove 
 
 @plugins.register(
     name="stability",
@@ -51,6 +52,7 @@ class stability(Plugin):
             self.upscale_prefix = self.config.get("upscale_prefix","图片高清化")
             self.repair_url = self.config.get("repair_url","")
             self.repair_prefix = self.config.get("repair_prefix","图片修复")
+            self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
             self.api_key = self.config.get("api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
@@ -76,7 +78,8 @@ class stability(Plugin):
             self.params_cache[user_id]['prompt'] = None
             self.params_cache[user_id]['upscale_quota'] = 0
             self.params_cache[user_id]['upscale_prompt'] = None
-            self.params_cache[user_id]['repair_quota'] = 0
+            self.params_cache[user_id]['repair_quota'] = 0 
+            self.params_cache[user_id]['rmbg_quota'] = 0
 
             logger.info('Added new user to params_cache. user id = ' + user_id)
 
@@ -133,6 +136,13 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
+            elif content.startswith(self.rmbg_prefix):
+                self.params_cache[user_id]['rmbg_quota'] = 1
+                tip = f"💡已经开启图片消除背景服务，请再发送一张图片进行处理"
+                reply = Reply(type=ReplyType.TEXT, content= tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+
             elif content.startswith(self.upscale_prefix):
                 # Call new function to handle search operation
                 pattern = self.upscale_prefix + r"\s(.+)"
@@ -155,8 +165,7 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
-            logger.info(f"inpaint_quota = {self.params_cache[user_id]['inpaint_quota']}, upscale_quota = {self.params_cache[user_id]['upscale_quota']},repair_quota = {self.params_cache[user_id]['repair_quota']}")
-            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1:
+            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1 and self.params_cache[user_id]['rmbg_quota'] < 1:
                 logger.info("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
 
@@ -176,6 +185,10 @@ class stability(Plugin):
             if self.params_cache[user_id]['repair_quota'] > 0:
                 self.params_cache[user_id]['repair_quota'] = 0
                 self.call_repair_service(image_path, user_id, e_context)
+            
+            if self.params_cache[user_id]['rmbg_quota'] > 0:
+                self.params_cache[user_id]['rmbg_quota'] = 0
+                self.call_rmbg_service(image_path, user_id, e_context)
 
             # 删除文件
             os.remove(image_path)
@@ -275,6 +288,23 @@ class stability(Plugin):
             logger.error("[stability] service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
+
+    def call_rmbg_service(self, image_path, user_id, e_context):
+        logger.info(f"calling remove bg service")
+   
+
+        output_path = TmpDir().path() + "rmbg" + str(uuid.uuid4()) + ".png" 
+        inp = Image.open(image_path) 
+        outpout = remove(inp) 
+        outpout.save(output_path)
+        image = self.img_to_png(output_path)
+
+        rc = image
+        rt = ReplyType.IMAGE
+
+        reply = Reply(rt, rc)
+        e_context["reply"] = reply
+        e_context.action = EventAction.BREAK_PASS
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
@@ -394,6 +424,18 @@ class stability(Plugin):
             idata = Image.open(io.BytesIO(content))
             idata = idata.convert("RGB")
             idata.save(image, format="JPEG")
+            return image
+        except Exception as e:
+            logger.error(e)
+            return False
+        
+    def img_to_png(self, file_path):
+        try:
+            image = io.BytesIO()
+            idata = Image.open(file_path)  # 使用文件路径打开图像
+            idata = idata.convert("RGBA")  # 转换为RGBA模式以保持PNG的透明度
+            idata.save(image, format="PNG")  # 指定保存格式为PNG
+            image.seek(0)
             return image
         except Exception as e:
             logger.error(e)
