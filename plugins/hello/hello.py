@@ -59,6 +59,14 @@ class Hello(Plugin):
             return
             
         if e_context["context"].type == ContextType.PATPAT:
+            if "group_welcome_msg" in conf():
+                reply = Reply()
+                reply.type = ReplyType.TEXT
+                reply.content = conf().get("group_welcome_msg", "")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS  # 事件结束，并跳过处理context的默认逻辑
+                return
+            
             e_context["context"].type = ContextType.TEXT
             msg: ChatMessage = e_context["context"]["msg"]
             e_context["context"].content = f"请你随机使用一种风格介绍你自己，并告诉用户输入#help可以查看帮助信息。"
