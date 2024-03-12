@@ -18,6 +18,9 @@ import uuid
 import io
 from PIL import Image
 from rembg import remove 
+import cv2
+import numpy as np
+import requests
 
 @plugins.register(
     name="stability",
@@ -52,7 +55,7 @@ class stability(Plugin):
             self.upscale_prefix = self.config.get("upscale_prefix","图片高清化")
             self.repair_url = self.config.get("repair_url","")
             self.repair_prefix = self.config.get("repair_prefix","图片修复")
-            self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
+            self.doodle_prefix = self.config.get("doodle_prefix", "涂鸦修图")
             self.api_key = self.config.get("api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
@@ -79,7 +82,7 @@ class stability(Plugin):
             self.params_cache[user_id]['upscale_quota'] = 0
             self.params_cache[user_id]['upscale_prompt'] = None
             self.params_cache[user_id]['repair_quota'] = 0 
-            self.params_cache[user_id]['rmbg_quota'] = 0
+            self.params_cache[user_id]['doodle_quota'] = 0
 
             logger.info('Added new user to params_cache. user id = ' + user_id)
 
@@ -136,12 +139,26 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
-            # elif content.startswith(self.rmbg_prefix):
-            #     self.params_cache[user_id]['rmbg_quota'] = 1
-            #     tip = f"💡已经开启图片消除背景服务，请再发送一张图片进行处理"
-            #     reply = Reply(type=ReplyType.TEXT, content= tip)
-            #     e_context["reply"] = reply
-            #     e_context.action = EventAction.BREAK_PASS
+            elif content.startswith(self.doodle_prefix):
+                # Call new function to handle search operation
+                pattern = self.doodle_prefix + r"\s(.+)"
+                match = re.match(pattern, content)
+                if match: ##   匹配上了doodle的指令
+                    doodle_prompt = content[len(self.doodle_prefix):].strip()
+                    if self.is_chinese(doodle_prompt):
+                        doodle_prompt = self.translate_to_english(doodle_prompt)
+                    logger.info(f"doodle_prompt = : {doodle_prompt}")
+
+                    self.params_cache[user_id]['doodle_prompt'] = doodle_prompt
+                    self.params_cache[user_id]['doodle_quota'] = 1
+                    tip = f"💡已经开启涂鸦修图模式，请将涂鸦后的图片发送给我。(仅支持微信里的红色涂鸦)"
+
+                else:
+                    tip = f"💡欢迎使用涂鸦修图服务，指令格式为:\n\n{self.upscale_prefix}+ 空格 + 涂鸦替换成的内容（用英文效果更好）。\n例如：涂鸦修图 3D cute monsters "
+
+                reply = Reply(type=ReplyType.TEXT, content= tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
 
             elif content.startswith(self.upscale_prefix):
                 # Call new function to handle search operation
@@ -165,7 +182,7 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
-            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1 and self.params_cache[user_id]['rmbg_quota'] < 1:
+            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1 and self.params_cache[user_id]['doodle_quota'] < 1:
                 logger.info("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
 
@@ -186,9 +203,9 @@ class stability(Plugin):
                 self.params_cache[user_id]['repair_quota'] = 0
                 self.call_repair_service(image_path, user_id, e_context)
             
-            if self.params_cache[user_id]['rmbg_quota'] > 0:
-                self.params_cache[user_id]['rmbg_quota'] = 0
-                self.call_rmbg_service(image_path, user_id, e_context)
+            if self.params_cache[user_id]['doodle_quota'] > 0:
+                self.params_cache[user_id]['doodle_quota'] = 0
+                self.call_doodle_service(image_path, user_id, e_context)
 
             # 删除文件
             os.remove(image_path)
@@ -289,22 +306,55 @@ class stability(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
-    def call_rmbg_service(self, image_path, user_id, e_context):
-        logger.info(f"calling remove bg service")
+    def call_doodle_service(self, image_path, user_id, e_context):
+        logger.info(f"calling doodle service")
    
+        doodle_prompt = self.params_cache[user_id]['doodle_prompt']
 
-        output_path = TmpDir().path() + "rmbg" + str(uuid.uuid4()) + ".png" 
-        inp = Image.open(image_path) 
-        outpout = remove(inp) 
-        outpout.save(output_path)
-        image = self.img_to_png(output_path)
+        self.create_red_mask(image_path)
 
-        rc = image
-        rt = ReplyType.IMAGE
+        response = requests.post(
+            f"{self.inpaint_url}",
+            headers={"authorization": f"Bearer {self.api_key}"},
 
-        reply = Reply(rt, rc)
-        e_context["reply"] = reply
-        e_context.action = EventAction.BREAK_PASS
+            files={
+                'image': open(image_path, 'rb'),
+                'mask': open("./mask.png", 'rb'),
+            },
+            data={
+                "prompt": doodle_prompt,
+                "mode": "mask",
+                "output_format": "jpeg",
+            },
+        )
+
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "doodle" + str(uuid.uuid4()) + ".jpg" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
+
+            image = self.img_to_jpeg(response.content)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] doodle service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            rc= "服务暂不可用,可能是某些关键字没有通过安全审查"
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] doodle service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
@@ -440,4 +490,36 @@ class stability(Plugin):
         except Exception as e:
             logger.error(e)
             return False
-   
+        
+    def convert_rgb_to_hsv(self, rgb_color):
+        bgr_color = np.uint8([[rgb_color[::-1]]])
+        hsv_color = cv2.cvtColor(bgr_color, cv2.COLOR_BGR2HSV)
+        return hsv_color[0][0]
+
+    def create_red_mask(self, image_path, save_path='mask.png'):
+        # 给定的RGB颜色样本列表
+        rgb_samples = [
+            (245, 51, 15), (242, 53, 15), (244, 52, 15),
+            (243, 52, 15), (242, 53, 15), (244, 51, 18)
+        ]
+
+        # 将RGB颜色样本转换到HSV空间
+        hsv_samples = [self.convert_rgb_to_hsv(rgb) for rgb in rgb_samples]
+
+        # HSV范围值
+        h_values, s_values, v_values = zip(*hsv_samples)
+        h_range = (max(0, min(h_values) - 10), min(179, max(h_values) + 10))
+        s_range = (max(0, min(s_values) - 50), min(255, max(s_values) + 50))
+        v_range = (max(0, min(v_values) - 50), min(255, max(v_values) + 50))
+
+        lower_red = np.array([h_range[0], s_range[0], v_range[0]])
+        upper_red = np.array([h_range[1], s_range[1], v_range[1]])
+
+        # 读取图片
+        image = cv2.imread(image_path)  
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_image, lower_red, upper_red)
+
+        # 保存掩膜图片
+        cv2.imwrite(save_path, mask)
+    
