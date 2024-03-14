@@ -17,7 +17,6 @@ import requests
 import uuid
 import io
 from PIL import Image
-from rembg import remove 
 import cv2
 import numpy as np
 import requests
