@@ -72,8 +72,8 @@ class WechatMPChannel(ChatChannel):
         loop.run_forever()
 
     async def delete_media(self, media_id):
-        logger.debug("[wechatmp] permanent media {} will be deleted in 10s".format(media_id))
-        await asyncio.sleep(10)
+        logger.debug("[wechatmp] permanent media {} will be deleted in 120s".format(media_id))
+        await asyncio.sleep(120)
         self.client.material.delete(media_id)
         logger.info("[wechatmp] permanent media {} has been deleted".format(media_id))
 
