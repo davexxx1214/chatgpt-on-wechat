@@ -8,7 +8,6 @@ from plugins import *
 from common.log import logger
 from common.expired_dict import ExpiredDict
 from common.tmp_dir import TmpDir
-from langdetect import detect
 import time
 
 import os
@@ -155,8 +154,7 @@ class stability(Plugin):
                 match = re.match(pattern, content)
                 if match: ##   匹配上了doodle的指令
                     doodle_prompt = content[len(self.doodle_prefix):].strip()
-                    if self.is_chinese(doodle_prompt):
-                        doodle_prompt = self.translate_to_english(doodle_prompt)
+                    doodle_prompt = self.translate_to_english(doodle_prompt)
                     logger.info(f"doodle_prompt = : {doodle_prompt}")
 
                     self.params_cache[user_id]['doodle_prompt'] = doodle_prompt
@@ -176,8 +174,7 @@ class stability(Plugin):
                 match = re.match(pattern, content)
                 if match: ##   匹配上了upscale的指令
                     upscale_prompt = content[len(self.upscale_prefix):].strip()
-                    if self.is_chinese(upscale_prompt):
-                        upscale_prompt = self.translate_to_english(upscale_prompt)
+                    upscale_prompt = self.translate_to_english(upscale_prompt)
                     logger.info(f"upscale_prompt = : {upscale_prompt}")
 
                     self.params_cache[user_id]['upscale_prompt'] = upscale_prompt
@@ -388,13 +385,13 @@ class stability(Plugin):
         )
 
         if response.status_code == 200:
-            # imgpath = TmpDir().path() + "rmgb" + str(uuid.uuid4()) + ".png" 
-            # with open(imgpath, 'wb') as file:
-            #     file.write(response.content)
+            imgpath = TmpDir().path() + "rmgb" + str(uuid.uuid4()) + ".png" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
             
             rt = ReplyType.IMAGE
 
-            image = self.img_to_jpeg(response.content)
+            image = self.img_to_png(response.content)
             if image is False:
                 rc= "服务暂不可用"
                 rt = ReplyType.TEXT
@@ -470,7 +467,7 @@ class stability(Plugin):
             e_context.action = EventAction.BREAK_PASS
 
         else:
-            rc= "服务暂不可用,可能是某些关键字没有通过安全审查"
+            rc= "服务暂不可用,可能是某些内容没有通过安全审查"
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] upscale service exception")
@@ -490,7 +487,7 @@ class stability(Plugin):
             url = f"{self.upscale_url}/result/{task_id}"
             status_code = -1
 
-            while  status_code != 200 and status_code != 403:
+            while  status_code == 202:
                 # 检查是否已经超过总超时时间
                 if (time.time() - start_time) > total_timeout:
                     logger.debug("❌ 超过最大等待时间")
@@ -510,20 +507,15 @@ class stability(Plugin):
                 msg = "图片高清化成功"
                 return True, msg, response.content
             elif status_code == 403:
-                return False, "请求失败，可能是某些关键字没有通过安全审查", ""
+                return False, "请求失败，可能是某些内容没有通过安全审查", ""
+            elif status_code == 500:
+                return False, "请求失败", ""
             else:
                 return False, "❌ 请求失败：服务异常", ""
         
         except Exception as e:
             logger.exception(e)
             return False, "❌ 请求失败", ""
-
-    def is_chinese(self, text):
-        try:
-            lang = detect(text)
-            return lang == 'zh-cn' or lang == 'zh-tw'
-        except:
-            return False
 
     def translate_to_english(self, text):
         
