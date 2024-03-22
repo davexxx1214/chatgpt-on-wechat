@@ -2,4 +2,4 @@ langdetect
 Pillow
 rembg
 opencv-python
-translators-5.9.0
+translators

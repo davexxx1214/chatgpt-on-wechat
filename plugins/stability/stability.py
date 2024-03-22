@@ -237,11 +237,12 @@ class stability(Plugin):
 
         response = requests.post(
             f"{self.inpaint_url}",
-            headers={"authorization": f"Bearer {self.api_key}"},
+            headers={
+                "authorization": f"Bearer {self.api_key}",
+                "accept": "image/*"},
             files={"image": open(image_path, "rb")},
             data={
                 "prompt": prompt,
-                "mode": "search",
                 "search_prompt": search_prompt,
                 "output_format": "jpeg",
             },
@@ -329,7 +330,7 @@ class stability(Plugin):
 
         response = requests.post(
             f"{self.doodle_url}",
-            headers={"authorization": f"Bearer {self.api_key}"},
+            headers={"authorization": f"Bearer {self.api_key}", "accept": "image/*"},
 
             files={
                 'image': open(image_path, 'rb'),
@@ -337,7 +338,6 @@ class stability(Plugin):
             },
             data={
                 "prompt": doodle_prompt,
-                "mode": "mask",
                 "output_format": "jpeg",
             },
         )
