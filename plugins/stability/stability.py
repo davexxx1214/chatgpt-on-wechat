@@ -57,6 +57,8 @@ class stability(Plugin):
             self.doodle_prefix = self.config.get("doodle_prefix", "涂鸦修图")
             self.rmbg_url = self.config.get("rmbg_url","")
             self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
+            self.sd3_url = self.config.get("sd3_url","")
+            self.sd3_prefix = self.config.get("sd3_prefix", "sd3")
             self.api_key = self.config.get("api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
@@ -147,6 +149,20 @@ class stability(Plugin):
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
+
+            elif content.startswith(self.sd3_prefix):
+                pattern = self.sd3_prefix + r"\s(.+)"
+                match = re.match(pattern, content)
+                if match: ##   匹配上了sd3的指令
+                    sd3_prompt = content[len(self.sd3_prefix):].strip()
+                    sd3_prompt = self.translate_to_english(sd3_prompt)
+                    logger.info(f"sd3_prompt = : {sd3_prompt}")
+                    self.call_sd3_service(sd3_prompt, e_context)
+                else:
+                    tip = f"💡欢迎使用sd3绘图(先行版)，指令格式为:\n\n{self.sd3_prefix}+ 空格 + 图片描述"
+                    reply = Reply(type=ReplyType.TEXT, content= tip)
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
 
             elif content.startswith(self.doodle_prefix):
                 # Call new function to handle search operation
@@ -412,7 +428,53 @@ class stability(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
         
+    def call_sd3_service(self, sd3_prompt,e_context):
+        logger.info(f"calling sd3 service")
+        response = requests.post(
+            f"{self.sd3_url}",
+            headers={
+                "accept": "image/*",
+                "Authorization": f"Bearer {self.api_key}"
+            },
+            files={
+               "none": ''
+            },
+            data={
+                "prompt": sd3_prompt,
+                "output_format": "png"
+             },
+        )
 
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "sd3" + str(uuid.uuid4()) + ".png" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
+
+            image = self.img_to_png(imgpath)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] sd3 service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            rc= "服务暂不可用,可能某些内容没有通过安全审查"
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] sd3 service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+
+    
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
