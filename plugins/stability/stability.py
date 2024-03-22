@@ -388,9 +388,9 @@ class stability(Plugin):
         )
 
         if response.status_code == 200:
-            imgpath = TmpDir().path() + "rmgb" + str(uuid.uuid4()) + ".png" 
-            with open(imgpath, 'wb') as file:
-                file.write(response.content)
+            # imgpath = TmpDir().path() + "rmgb" + str(uuid.uuid4()) + ".png" 
+            # with open(imgpath, 'wb') as file:
+            #     file.write(response.content)
             
             rt = ReplyType.IMAGE
 
@@ -425,7 +425,8 @@ class stability(Plugin):
         response = requests.post(
             f"{self.upscale_url}",
             headers={
-                "authorization": f"Bearer {self.api_key}"
+                "authorization": f"Bearer {self.api_key}",
+                 "accept": "image/*"
             },
             files={
                 "image": open(image_path, "rb")
