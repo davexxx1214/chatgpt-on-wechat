@@ -8,7 +8,6 @@ from plugins import *
 from common.log import logger
 from common.expired_dict import ExpiredDict
 from common.tmp_dir import TmpDir
-from googletrans import Translator
 from langdetect import detect
 import time
 
@@ -20,6 +19,7 @@ from PIL import Image
 import cv2
 import numpy as np
 import requests
+import translators as ts
 
 @plugins.register(
     name="stability",
@@ -54,7 +54,10 @@ class stability(Plugin):
             self.upscale_prefix = self.config.get("upscale_prefix","图片高清化")
             self.repair_url = self.config.get("repair_url","")
             self.repair_prefix = self.config.get("repair_prefix","图片修复")
+            self.doodle_url = self.config.get("doodle_url","")
             self.doodle_prefix = self.config.get("doodle_prefix", "涂鸦修图")
+            self.rmbg_url = self.config.get("rmbg_url","")
+            self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
             self.api_key = self.config.get("api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
@@ -82,6 +85,7 @@ class stability(Plugin):
             self.params_cache[user_id]['upscale_prompt'] = None
             self.params_cache[user_id]['repair_quota'] = 0 
             self.params_cache[user_id]['doodle_quota'] = 0
+            self.params_cache[user_id]['rmbg_quota'] = 0
 
             logger.info('Added new user to params_cache. user id = ' + user_id)
 
@@ -138,6 +142,13 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
+            elif content.startswith(self.rmbg_prefix):
+                self.params_cache[user_id]['rmbg_quota'] = 1
+                tip = f"💡已经开启图片消除背景服务，请再发送一张图片进行处理"
+                reply = Reply(type=ReplyType.TEXT, content= tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+
             elif content.startswith(self.doodle_prefix):
                 # Call new function to handle search operation
                 pattern = self.doodle_prefix + r"\s(.+)"
@@ -181,7 +192,7 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
-            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1 and self.params_cache[user_id]['doodle_quota'] < 1:
+            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1 and self.params_cache[user_id]['doodle_quota'] < 1 and self.params_cache[user_id]['rmbg_quota'] < 1:
                 logger.info("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
 
@@ -205,6 +216,10 @@ class stability(Plugin):
             if self.params_cache[user_id]['doodle_quota'] > 0:
                 self.params_cache[user_id]['doodle_quota'] = 0
                 self.call_doodle_service(image_path, user_id, e_context)
+
+            if self.params_cache[user_id]['rmbg_quota'] > 0:
+                self.params_cache[user_id]['rmbg_quota'] = 0
+                self.call_rmbg_service(image_path, user_id, e_context)
 
             # 删除文件
             os.remove(image_path)
@@ -313,7 +328,7 @@ class stability(Plugin):
         self.create_red_mask(image_path)
 
         response = requests.post(
-            f"{self.inpaint_url}",
+            f"{self.doodle_url}",
             headers={"authorization": f"Bearer {self.api_key}"},
 
             files={
@@ -354,6 +369,53 @@ class stability(Plugin):
             logger.error("[stability] doodle service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
+
+    def call_rmbg_service(self, image_path, user_id, e_context):
+        logger.info(f"calling remove bg service")
+   
+        response = requests.post(
+            f"{self.rmbg_url}",
+            headers={
+                "accept": "image/*",
+                "Authorization": f"Bearer {self.api_key}"
+            },
+            files={
+                "image": open(image_path, "rb")
+            },
+            data={
+                "output_format": "png"
+             },
+        )
+
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "rmgb" + str(uuid.uuid4()) + ".png" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
+
+            image = self.img_to_jpeg(response.content)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] rmbg service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            rc= "服务暂不可用,可能是图片分辨率太高(仅支持分辨率小于2048*2048的图片)"
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] rmbg service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+        
+
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
@@ -463,9 +525,8 @@ class stability(Plugin):
             return False
 
     def translate_to_english(self, text):
-        translator = Translator(service_urls=['translate.google.com'])
-        translation = translator.translate(text, dest='en')
-        return translation.text
+        
+        return ts.translate_text(text, translator='alibaba')
 
     def img_to_jpeg(self, content):
         try:
