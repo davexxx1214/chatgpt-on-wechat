@@ -24,6 +24,6 @@
 
 import translators as ts
 
-q_text = '把图片中女生的头发换成灰色'
+q_text = 'Change the girl&#39;s hair in the picture to gray'
 
 print(ts.translate_text(q_text,  translator='alibaba'))
