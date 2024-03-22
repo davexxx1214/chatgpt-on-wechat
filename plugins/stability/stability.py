@@ -391,7 +391,7 @@ class stability(Plugin):
             
             rt = ReplyType.IMAGE
 
-            image = self.img_to_png(response.content)
+            image = self.img_to_png(imgpath)
             if image is False:
                 rc= "服务暂不可用"
                 rt = ReplyType.TEXT
