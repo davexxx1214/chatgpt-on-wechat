@@ -59,6 +59,8 @@ class stability(Plugin):
             self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
             self.sd3_url = self.config.get("sd3_url","")
             self.sd3_prefix = self.config.get("sd3_prefix", "sd3")
+            self.outpaint_url=self.config.get("outpaint_url","")
+            self.outpaint_prefix = self.config.get("outpaint_prefix", "扩图")
             self.api_key = self.config.get("api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
@@ -87,6 +89,7 @@ class stability(Plugin):
             self.params_cache[user_id]['repair_quota'] = 0 
             self.params_cache[user_id]['doodle_quota'] = 0
             self.params_cache[user_id]['rmbg_quota'] = 0
+            self.params_cache[user_id]['outpaint_quota'] = 0
 
             logger.info('Added new user to params_cache. user id = ' + user_id)
 
@@ -139,6 +142,13 @@ class stability(Plugin):
             elif content.startswith(self.repair_prefix):
                 self.params_cache[user_id]['repair_quota'] = 1
                 tip = f"💡已经开启图片修复服务，请再发送一张图片进行处理(分辨率小于1024*1024)"
+                reply = Reply(type=ReplyType.TEXT, content= tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+
+            elif content.startswith(self.outpaint_prefix):
+                self.params_cache[user_id]['outpaint_quota'] = 1
+                tip = f"💡已经开启图片扩展服务，请再发送一张图片进行处理"
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -205,8 +215,14 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
-            if self.params_cache[user_id]['inpaint_quota'] < 1 and self.params_cache[user_id]['upscale_quota'] < 1 and self.params_cache[user_id]['repair_quota'] < 1 and self.params_cache[user_id]['doodle_quota'] < 1 and self.params_cache[user_id]['rmbg_quota'] < 1:
-                logger.info("on_handle_context: 当前用户识图配额不够，不进行识别")
+            if (self.params_cache[user_id]['inpaint_quota'] < 1 and 
+                self.params_cache[user_id]['upscale_quota'] < 1 and 
+                self.params_cache[user_id]['repair_quota'] < 1 and 
+                self.params_cache[user_id]['doodle_quota'] < 1 and 
+                self.params_cache[user_id]['rmbg_quota'] < 1 and 
+                self.params_cache[user_id]['outpaint_quota'] < 1):
+                # 进行下一步的操作                
+                logger.debug("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
 
             logger.info("on_handle_context: 开始处理图片")
@@ -233,6 +249,10 @@ class stability(Plugin):
             if self.params_cache[user_id]['rmbg_quota'] > 0:
                 self.params_cache[user_id]['rmbg_quota'] = 0
                 self.call_rmbg_service(image_path, user_id, e_context)
+
+            if self.params_cache[user_id]['outpaint_quota'] > 0:
+                self.params_cache[user_id]['outpaint_quota'] = 0
+                self.call_outpaint_service(image_path, user_id, e_context)
 
             # 删除文件
             os.remove(image_path)
@@ -427,7 +447,56 @@ class stability(Plugin):
             logger.error("[stability] rmbg service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
-        
+
+    def call_outpaint_service(self, image_path, user_id, e_context):
+        logger.info(f"calling outpainting service")
+   
+        response = requests.post(
+            f"{self.outpaint_url}",
+            headers={
+                "accept": "image/*",
+                "Authorization": f"Bearer {self.api_key}"
+            },
+            files={
+                "image": open(image_path, "rb")
+            },
+            data={
+                "left": 512,
+                "down": 512,
+                "right":512,
+                "up":512,
+                "output_format": "png"
+             },
+        )
+
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "outpaint" + str(uuid.uuid4()) + ".png" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
+
+            image = self.img_to_png(imgpath)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] rmbg service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            rc= "服务暂不可用,可能是图片分辨率太高(仅支持分辨率小于2048*2048的图片)"
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] rmbg service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
     def call_sd3_service(self, sd3_prompt,e_context):
         logger.info(f"calling sd3 service")
         response = requests.post(
