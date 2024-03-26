@@ -63,7 +63,7 @@ class sovits(Plugin):
         if user_id not in self.params_cache:
             self.params_cache[user_id] = {}
             self.params_cache[user_id]['tts_quota'] = 0
-            logger.info('Added new user to params_cache. user id = ' + user_id)
+            logger.debug('Added new user to params_cache. user id = ' + user_id)
 
         if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
             logger.info('符合转换条件，开始转换')

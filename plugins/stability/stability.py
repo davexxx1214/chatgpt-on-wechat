@@ -91,7 +91,7 @@ class stability(Plugin):
             self.params_cache[user_id]['rmbg_quota'] = 0
             self.params_cache[user_id]['outpaint_quota'] = 0
 
-            logger.info('Added new user to params_cache. user id = ' + user_id)
+            logger.debug('Added new user to params_cache. user id = ' + user_id)
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.inpaint_prefix):
