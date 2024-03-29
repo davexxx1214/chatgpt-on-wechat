@@ -47,6 +47,8 @@ class ChatGPTBot(Bot, OpenAIImage):
         # acquire reply content
         if context.type == ContextType.TEXT:
             logger.info("[CHATGPT] query={}".format(query))
+            if conf().get("open_ai_api_base"):
+                openai.api_base = conf().get("open_ai_api_base")
 
             session_id = context["session_id"]
             reply = None
