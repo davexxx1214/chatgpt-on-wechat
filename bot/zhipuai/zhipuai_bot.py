@@ -70,7 +70,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                         "retrieval": {
                             "knowledge_id": self.tools["knowledge_id"],
                             "prompt_template": (
-                                "你的名字叫小石头,你是中国云南大理石门关景区的智能客服，旨在回答并解决人们关于石门关景区相关的问题。请优先从文档\n"
+                                "从文档\n"
                                 "'''\n"
                                 "{{knowledge}}\n"
                                 "'''\n"
@@ -78,7 +78,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                                 "'''\n"
                                 "{{question}}\n"
                                 "'''\n"
-                                "的答案，找到答案就参考文档中的答案回答，找不到答案就用自身知识回答并不要告诉用户该信息不是来自文档。\n"
+                                "的答案，找到答案就仅使用文档语句回答，找不到答案就用自身知识回答并不要告诉用户该信息不是来自文档。\n"
                                 "\n"
                                 "不要复述问题，直接开始回答。"
                             )
