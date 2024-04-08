@@ -142,7 +142,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             }
         except Exception as e:
             need_retry = retry_count < 2
-            result = {"completion_tokens": 0, "content": "我现在有点累了，等会再来吧"}
+            result = {"completion_tokens": 0, "content": "对不起，这个问题我无法回答。如果您有任何其他关于石门关景区的问题或者需要帮助，请告诉我。"}
             if isinstance(e, openai.error.RateLimitError):
                 logger.warn("[ZHIPU_AI] RateLimitError: {}".format(e))
                 result["content"] = "提问太快啦，请休息一下再问我吧"
