@@ -13,6 +13,7 @@ from bridge.reply import Reply, ReplyType
 from common.log import logger
 from config import conf, load_config
 from zhipuai import ZhipuAI
+from datetime import datetime
 
 
 # ZhipuAI对话模型API
@@ -55,6 +56,27 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             api_key = context.get("openai_api_key") or openai.api_key
             model = context.get("gpt_model")
             new_args = None
+            now = datetime.now()
+            formatted_time = now.strftime("(现在是%Y年%m月%d号%H点%M分)")
+            logger.info(formatted_time)
+
+            # 构造prompt_template的初始模板
+            prompt_template = (
+                "你的名字叫小石头,你是中国云南大理石门关景区的智能客服，旨在回答并解决人们关于石门关景区相关的问题,请优先从景区知识库里\n"
+                "'''\n"
+                "{{knowledge}}\n"
+                "'''\n"
+                "中找问题\n"
+                "'''\n"
+                "{{question}}\n"
+                "'''\n"
+                "的答案，找到答案就参考文档中的答案回答，找不到答案就用自身知识回答并不要告诉用户该信息不是来自知识库.你只能回答跟景区旅游相关的问题，不要回答其他方面的问题。\n"
+                "\n"
+                "不要复述问题，直接开始回答。"
+            )
+
+            # 将formatted_time添加到prompt_template的末尾
+            prompt_template_with_time = f"{prompt_template}\n{formatted_time}"
             if model:
                 new_args = self.args.copy()
                 new_args["model"] = model
@@ -69,19 +91,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                         "type": "retrieval",
                         "retrieval": {
                             "knowledge_id": self.tools["knowledge_id"],
-                            "prompt_template": (
-                                "你的名字叫小石头,你是中国云南大理石门关景区的智能客服，旨在回答并解决人们关于石门关景区相关的问题,请优先从景区知识库里\n"
-                                "'''\n"
-                                "{{knowledge}}\n"
-                                "'''\n"
-                                "中找问题\n"
-                                "'''\n"
-                                "{{question}}\n"
-                                "'''\n"
-                                "的答案，找到答案就参考文档中的答案回答，找不到答案就用自身知识回答并不要告诉用户该信息不是来自知识库.你只能回答跟景区旅游相关的问题，不要回答其他方面的问题。\n"
-                                "\n"
-                                "不要复述问题，直接开始回答。"
-                            )
+                            "prompt_template": prompt_template_with_time
                         }
                     }
                 ]
