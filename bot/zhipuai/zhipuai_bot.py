@@ -35,6 +35,13 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
     def reply(self, query, context=None):
         # acquire reply content
         if context.type == ContextType.TEXT:
+            tz = ZoneInfo('Asia/Shanghai')
+
+            # 获取当前UTC+8时区的时间
+            now = datetime.now(tz)
+
+            formatted_time = now.strftime("(现在时间是%H点%M分)")
+            query = f"{query}{formatted_time}"
             logger.info("[ZHIPU_AI] query={}".format(query))
 
             session_id = context["session_id"]
@@ -57,13 +64,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             api_key = context.get("openai_api_key") or openai.api_key
             model = context.get("gpt_model")
             new_args = None
-            tz = ZoneInfo('Asia/Shanghai')
-
-            # 获取当前UTC+8时区的时间
-            now = datetime.now(tz)
-
-            formatted_time = now.strftime("(现在的时间是%H点%M分)")
-            logger.info(formatted_time)
+            
 
             # 构造prompt_template的初始模板
             prompt_template = (
