@@ -14,6 +14,7 @@ from common.log import logger
 from config import conf, load_config
 from zhipuai import ZhipuAI
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 # ZhipuAI对话模型API
@@ -56,8 +57,12 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             api_key = context.get("openai_api_key") or openai.api_key
             model = context.get("gpt_model")
             new_args = None
-            now = datetime.now()
-            formatted_time = now.strftime("(现在是%Y年%m月%d号%H点%M分)")
+            tz = ZoneInfo('Asia/Shanghai')
+
+            # 获取当前UTC+8时区的时间
+            now = datetime.now(tz)
+
+            formatted_time = now.strftime("(现在的时间是%H点%M分)")
             logger.info(formatted_time)
 
             # 构造prompt_template的初始模板
