@@ -510,6 +510,7 @@ class stability(Plugin):
             },
             data={
                 "prompt": sd3_prompt,
+                "model": "sd3",
                 "output_format": "png"
              },
         )
