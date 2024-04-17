@@ -169,7 +169,7 @@ class stability(Plugin):
                     logger.info(f"sd3_prompt = : {sd3_prompt}")
                     self.call_sd3_service(sd3_prompt, e_context)
                 else:
-                    tip = f"💡欢迎使用sd3绘图(先行版)，指令格式为:\n\n{self.sd3_prefix}+ 空格 + 图片描述"
+                    tip = f"💡欢迎使用sd3正式版绘图，指令格式为:\n\n{self.sd3_prefix}+ 空格 + 图片描述"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
