@@ -59,6 +59,7 @@ class stability(Plugin):
             self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
             self.sd3_url = self.config.get("sd3_url","")
             self.sd3_prefix = self.config.get("sd3_prefix", "sd3")
+            self.sd3_mode = self.config.get("sd3_mode", "sd3")
             self.outpaint_url=self.config.get("outpaint_url","")
             self.outpaint_prefix = self.config.get("outpaint_prefix", "扩图")
             self.api_key = self.config.get("api_key", "")
@@ -510,7 +511,7 @@ class stability(Plugin):
             },
             data={
                 "prompt": sd3_prompt,
-                "model": "sd3",
+                "model": self.sd3_mode,
                 "output_format": "png"
              },
         )
