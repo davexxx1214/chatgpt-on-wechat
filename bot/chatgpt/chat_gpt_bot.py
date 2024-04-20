@@ -51,7 +51,7 @@ class ChatGPTBot(Bot, OpenAIImage):
                 openai.api_base = conf().get("open_ai_api_base")
 
             if "llama3" in conf().get("model"):
-                query = f"{query}{",请用中文回复"}"
+                query = f"{query}{',请用中文回复'}"
                 logger.info("[CHATGPT] actual query={}".format(query))
 
             session_id = context["session_id"]
