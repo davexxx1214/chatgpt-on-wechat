@@ -651,7 +651,7 @@ class stability(Plugin):
             return False, "❌ 请求失败", ""
 
     def translate_to_english(self, text):
-        
+        logger.info(f"translate text = {text}")
         return ts.translate_text(text, translator='alibaba')
 
     def img_to_jpeg(self, content):
