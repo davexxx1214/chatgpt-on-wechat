@@ -24,6 +24,6 @@
 
 import translators as ts
 
-q_text = 'Change the girl&#39;s hair in the picture to gray'
+q_text = '四十多岁中国秃头女程序员穿着浅蓝宽松圆领卫衣，struggling的表情在有落地窗的办公室痛苦的写着代码'
 
-print(ts.translate_text(q_text,  translator='alibaba'))
+print(ts.translate_text(q_text,  translator='baidu'))
