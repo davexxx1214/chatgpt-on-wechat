@@ -304,7 +304,8 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
         else:
-            rc= "服务暂不可用,可能是某些关键字没有通过安全审查"
+            error = str(response.json())
+            rc= error
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] service exception")
@@ -399,7 +400,8 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
         else:
-            rc= "对不起，服务暂不可用"
+            error = str(response.json())
+            rc= error
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] doodle service exception")
