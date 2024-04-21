@@ -278,18 +278,19 @@ class stability(Plugin):
             data={
                 "prompt": prompt,
                 "search_prompt": search_prompt,
-                "output_format": "jpeg",
+                "output_format": "png",
             },
         )
 
         if response.status_code == 200:
-            imgpath = TmpDir().path() + "stability" + str(uuid.uuid4()) + ".jpg" 
+            imgpath = TmpDir().path() + "stability" + str(uuid.uuid4()) + ".png" 
+            logger.info(f"handle stability result, imagePath = {imgpath}")
             with open(imgpath, 'wb') as file:
                 file.write(response.content)
             
             rt = ReplyType.IMAGE
 
-            image = self.img_to_jpeg(response.content)
+            image = self.img_to_png(imgpath)
             if image is False:
                 rc= "服务暂不可用"
                 rt = ReplyType.TEXT
@@ -372,18 +373,19 @@ class stability(Plugin):
             },
             data={
                 "prompt": doodle_prompt,
-                "output_format": "jpeg",
+                "output_format": "png",
             },
         )
 
         if response.status_code == 200:
-            imgpath = TmpDir().path() + "doodle" + str(uuid.uuid4()) + ".jpg" 
+            imgpath = TmpDir().path() + "doodle" + str(uuid.uuid4()) + ".png" 
+            logger.info(f"get doodle result, imagePath = {imgpath}")
             with open(imgpath, 'wb') as file:
                 file.write(response.content)
             
             rt = ReplyType.IMAGE
 
-            image = self.img_to_jpeg(response.content)
+            image = self.img_to_png(imgpath)
             if image is False:
                 rc= "服务暂不可用"
                 rt = ReplyType.TEXT
@@ -397,7 +399,7 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
         else:
-            rc= "服务暂不可用,可能是某些关键字没有通过安全审查"
+            rc= "对不起，服务暂不可用"
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] doodle service exception")
