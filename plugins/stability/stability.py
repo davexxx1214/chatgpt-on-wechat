@@ -659,7 +659,7 @@ class stability(Plugin):
 
     def translate_to_english(self, text):
         logger.info(f"translate text = {text}")
-        return ts.translate_text(text, translator='baidu')
+        return ts.translate_text(text, translator='google')
 
     def img_to_jpeg(self, content):
         try:

@@ -24,6 +24,6 @@
 
 import translators as ts
 
-q_text = '四十多岁中国秃头女程序员穿着浅蓝宽松圆领卫衣，struggling的表情在有落地窗的办公室痛苦的写着代码'
+q_text = 'A stunning 3D render of a diverse group of Pokémon gathered in a lush, vibrant environment. The Pokémon include Pikachu, Charizard, Squirtle, Bulbasaur, and Jigglypuff, each showcasing their unique abilities. The background features a colorful, layered landscape with towering mountains, a shimmering lake, and a candy-colored sunset sky. The scene exudes a sense of adventure and excitement, with the Pokémon appearing to be on the brink of an epic battle., 3d render, illustration'
 
-print(ts.translate_text(q_text,  translator='baidu'))
+print(ts.translate_text(q_text,  translator='google'))
