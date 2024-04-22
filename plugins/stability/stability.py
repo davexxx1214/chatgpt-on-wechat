@@ -495,7 +495,8 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
         else:
-            rc= "服务暂不可用,可能是图片分辨率太高(仅支持分辨率小于2048*2048的图片)"
+            error = str(response.json())
+            rc= error
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] rmbg service exception")
@@ -541,7 +542,8 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
         else:
-            rc= "服务暂不可用,可能某些内容没有通过安全审查"
+            error = str(response.json())
+            rc= error
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] sd3 service exception")
@@ -604,7 +606,8 @@ class stability(Plugin):
             e_context.action = EventAction.BREAK_PASS
 
         else:
-            rc= "服务暂不可用,可能是某些内容没有通过安全审查"
+            error = str(response.json())
+            rc= error
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] upscale service exception")
