@@ -871,6 +871,7 @@ class MidJourney(Plugin):
         if not status:
             rt = ReplyType.ERROR
         if status and imageUrl:
+            logger.info(f'get image url = {imageUrl}')
             if self.config["mj_tip"] or reply_type == "image":
                 if self.config["mj_tip"]:
                     send_reply(msg, e_context)
