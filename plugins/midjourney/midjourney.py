@@ -875,8 +875,10 @@ class MidJourney(Plugin):
             if self.config["mj_tip"] or reply_type == "image":
                 if self.config["mj_tip"]:
                     send_reply(msg, e_context)
-                rt = ReplyType.IMAGE
-                rc = img_to_jpeg(imageUrl, self.config["discordapp_proxy"])
+                # rt = ReplyType.IMAGE
+                # rc = img_to_jpeg(imageUrl, self.config["discordapp_proxy"])
+                rt = ReplyType.IMAGE_URL
+                rc = imageUrl
         if not rc:
             rt = ReplyType.ERROR
             rc = "图片下载发送失败"
