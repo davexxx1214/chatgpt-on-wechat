@@ -48,11 +48,10 @@ class ChatGPTBot(Bot, OpenAIImage):
         if context.type == ContextType.TEXT:
             logger.info("[CHATGPT] query={}".format(query))
             if conf().get("open_ai_api_base"):
-                openai.api_base = conf().get("open_ai_api_base")
-
-            if "llama3" in conf().get("model"):
-                query = f"{query}{',请用中文回复'}"
-                logger.info("[CHATGPT] actual query={}".format(query))
+                openai.api_base = conf().get("open_ai_api_base") 
+                
+            if conf().get("open_ai_api_key"):
+                openai.api_key = conf().get("open_ai_api_key")
 
             session_id = context["session_id"]
             reply = None
