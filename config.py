@@ -77,6 +77,8 @@ available_setting = {
     "qwen_agent_key": "",
     "qwen_app_id": "",
     "qwen_node_id": "",  # 流程编排模型用到的id，如果没有用到qwen_node_id，请务必保持为空字符串
+    # 阿里灵积模型api key
+    "dashscope_api_key": "",
     # Google Gemini Api Key
     "gemini_api_key": "",
     # wework的通用配置
@@ -158,6 +160,8 @@ available_setting = {
     "zhipu_ai_api_key": "",
     "zhipu_ai_knowledge_id": "", # 调用的智谱 AI 的知识库 id
     "zhipu_ai_api_base": "https://open.bigmodel.cn/api/paas/v4",
+    "moonshot_api_key": "",
+    "moonshot_base_url":"https://api.moonshot.cn/v1/chat/completions",
     # LinkAI平台配置
     "use_linkai": False,
     "linkai_api_key": "",
@@ -259,6 +263,8 @@ def load_config():
     logger.info("[INIT] load config: {}".format(config))
 
     config.load_user_datas()
+
+
 
 
 def get_root():
