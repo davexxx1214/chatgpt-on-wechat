@@ -15,14 +15,7 @@ class Session(object):
     # 重置会话
     def reset(self):
         system_item = {"role": "system", "content": self.system_prompt}
-        assistant = conf().get("assist_desc", None)
         self.messages = [system_item]
-
-        if assistant is not None:
-            assistant_item = {"role": "assistant", "content": assistant}
-            self.messages.append(assistant_item)
-        logger.info(f"current prompt = {self.messages}")
-        
 
     def set_system_prompt(self, system_prompt):
         self.system_prompt = system_prompt
