@@ -41,7 +41,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             now = datetime.now(tz)
 
             formatted_time = now.strftime("(现在时间是%H点%M分)")
-            if "路线" in query:    
+            if "路线" in query or "目前" in query or "现在" in query:    
                 query = f"{query}{formatted_time}"
                 
             logger.info("[ZHIPU_AI] query={}".format(query))
