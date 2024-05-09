@@ -209,16 +209,17 @@ class WechatChannel(ChatChannel):
     # 统一的发送函数，每个Channel自行实现，根据reply的type字段发送不同类型的消息
     def send(self, reply: Reply, context: Context):
         receiver = context["receiver"]
+        nick_name = context["msg"].actual_user_nickname
         if reply.type == ReplyType.TEXT:
             nick_name_black_list = conf().get("nick_name_black_list", [])
             for black_name in nick_name_black_list:
                 logger.info(f"[WX]black list name = {black_name}")
             
-            logger.info(f"[WX]receiver name = {receiver}")
+            logger.info(f"[WX]receiver nick name = {nick_name}")
 
-            if receiver and receiver in nick_name_black_list:
+            if nick_name and nick_name in nick_name_black_list:
                 # 黑名单过滤
-                logger.info(f"[WX] receiver Nickname {receiver} in In BlackList, ignore")
+                logger.info(f"[WX] receiver Nickname {nick_name} in In BlackList, ignore")
                 return None
 
             itchat.send(reply.content, toUserName=receiver)
