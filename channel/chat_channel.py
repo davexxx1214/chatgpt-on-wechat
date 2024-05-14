@@ -98,11 +98,7 @@ class ChatChannel(Channel):
 
             nick_name_black_list = conf().get("nick_name_black_list", [])
             if context.get("isgroup", False):  # 群聊
-                 # 校验关键字
-                if check_prefix(content, conf().get("prefix_blacklist")) is not None:
-                    logger.info(f"Prefix in BlackList, ignore")
-                    return None
-                
+                # 校验关键字
                 match_prefix = check_prefix(content, conf().get("group_chat_prefix"))
                 match_contain = check_contain(content, conf().get("group_chat_keyword"))
                 flag = False
@@ -120,7 +116,7 @@ class ChatChannel(Channel):
 
                         if nick_name and nick_name in nick_name_black_list:
                             # 黑名单过滤
-                            logger.info(f"[WX] Nickname {nick_name} in In BlackList, ignore")
+                            logger.warning(f"[WX] Nickname {nick_name} in In BlackList, ignore")
                             return None
 
                         logger.info("[WX]receive group at")
@@ -150,10 +146,7 @@ class ChatChannel(Channel):
                     # 黑名单过滤
                     logger.warning(f"[WX] Nickname '{nick_name}' in In BlackList, ignore")
                     return None
-                
-                if check_prefix(content, conf().get("prefix_blacklist")) is not None:
-                    logger.warning(f"Prefix in BlackList, ignore")
-                    return None
+
                 match_prefix = check_prefix(content, conf().get("single_chat_prefix", [""]))
                 if match_prefix is not None:  # 判断如果匹配到自定义前缀，则返回过滤掉前缀+空格后的内容
                     content = content.replace(match_prefix, "", 1).strip()
