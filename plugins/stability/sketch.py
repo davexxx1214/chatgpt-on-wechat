@@ -3,7 +3,7 @@ import requests
 response = requests.post(
     f"https://api.stability.ai/v2beta/stable-image/control/sketch",
     headers={
-        "authorization": f"Bearer sk-YmPiZN5dREYUyWIvOoHfDtOgiQ1rl0hu3IRV9IEfyxspxzCx",
+        "authorization": f"Bearer sk-xxx",
         "accept": "image/*"
     },
     files={

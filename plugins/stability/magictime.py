@@ -2,7 +2,7 @@ import replicate
 import os
 
 # 设置环境变量REPLICATE_API_TOKEN
-os.environ['REPLICATE_API_TOKEN'] = 'r8_6lfxAzr995cdd1KJHt3lWifkXDHt3At2rvMze'
+os.environ['REPLICATE_API_TOKEN'] = 'r8_xxx'
 
 # 使用api_token发送请求...
 

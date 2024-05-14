@@ -41,7 +41,7 @@ import requests
 response = requests.post(
     f"https://api.stability.ai/v2beta/stable-image/edit/search-and-replace",
     headers={
-        "authorization": f"Bearer sk-YmPiZN5dREYUyWIvOoHfDtOgiQ1rl0hu3IRV9IEfyxspxzCx",
+        "authorization": f"Bearer sk-xxx,
         "accept": "image/*"
     },
     files={

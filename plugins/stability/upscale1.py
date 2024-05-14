@@ -5,7 +5,7 @@ import base64
 
 
 # 设置环境变量
-os.environ['REPLICATE_API_TOKEN'] = 'r8_6lfxAzr995cdd1KJHt3lWifkXDHt3At2rvMze'
+os.environ['REPLICATE_API_TOKEN'] = 'r8_xxx'
 
 
 with open("./1.jpg", "rb")as file:
