@@ -43,7 +43,7 @@ class sovits(Plugin):
             # 从配置中提取所需的设置
             self.api_url = self.config.get("api_url","")
             self.tts_prefix = self.config.get("tts_prefix","变声")
-            self.azure_tts_prefix = self.config.get("azure_tts_prefix","转语音")
+            self.azure_tts_prefix = self.config.get("azure_tts_prefix","语音合成")
             self.tts_model = self.config.get("tts_model","default")
             self.model_list = self.config.get("model_list", "[]")
             self.model_mappings = self.config.get("model_mappings", "[]")
@@ -109,14 +109,14 @@ class sovits(Plugin):
                 if content.startswith(self.azure_tts_prefix):
                     pattern = self.azure_tts_prefix + r"\s(.+)"
                     match = re.match(pattern, content)
-                    tip = f"💡欢迎使用语音转化服务(可商用)，语音服务指令格式为:\n\n{self.azure_tts_prefix}+空格+文字"
+                    tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix}+空格+文字"
                     if match:
                         tts_text = content[len(self.azure_tts_prefix):].strip()
                         azure_voice_service = AzureVoice()
                         reply = azure_voice_service.textToVoice(tts_text)
                     else:
                         reply = Reply(type=ReplyType.TEXT, content= tip)
-                        
+
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
                     
