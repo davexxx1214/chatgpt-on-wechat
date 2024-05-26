@@ -200,7 +200,7 @@ class stability(Plugin):
 
             elif content.startswith(self.erase_prefix):
                 self.params_cache[user_id]['erase_quota'] = 1
-                tip = f"💡已经开启图片擦除服务，请将涂鸦后的图片发送给我。(仅支持微信里的红色涂鸦)"
+                tip = f"💡已经开启图片擦除服务，可以帮您擦除图片中的指定物品。请将涂鸦以后的图片发送给我。(仅支持微信里的红色涂鸦)"
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
