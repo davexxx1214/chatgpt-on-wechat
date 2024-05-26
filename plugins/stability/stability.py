@@ -55,6 +55,8 @@ class stability(Plugin):
             self.repair_prefix = self.config.get("repair_prefix","图片修复")
             self.doodle_url = self.config.get("doodle_url","")
             self.doodle_prefix = self.config.get("doodle_prefix", "涂鸦修图")
+            self.erase_url = self.config.get("erase_url","")
+            self.erase_prefix = self.config.get("erase_prefix", "图片擦除")
             self.rmbg_url = self.config.get("rmbg_url","")
             self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
             self.sd3_url = self.config.get("sd3_url","")
@@ -91,6 +93,7 @@ class stability(Plugin):
             self.params_cache[user_id]['doodle_quota'] = 0
             self.params_cache[user_id]['rmbg_quota'] = 0
             self.params_cache[user_id]['outpaint_quota'] = 0
+            self.params_cache[user_id]['erase_quota'] = 0
 
             logger.debug('Added new user to params_cache. user id = ' + user_id)
 
@@ -195,6 +198,13 @@ class stability(Plugin):
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
 
+            elif content.startswith(self.erase_prefix):
+                self.params_cache[user_id]['erase_quota'] = 1
+                tip = f"💡已经开启图片擦除服务，请将涂鸦后的图片发送给我。(仅支持微信里的红色涂鸦)"
+                reply = Reply(type=ReplyType.TEXT, content= tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+
             elif content.startswith(self.upscale_prefix):
                 # Call new function to handle search operation
                 pattern = self.upscale_prefix + r"\s(.+)"
@@ -221,7 +231,8 @@ class stability(Plugin):
                 self.params_cache[user_id]['repair_quota'] < 1 and 
                 self.params_cache[user_id]['doodle_quota'] < 1 and 
                 self.params_cache[user_id]['rmbg_quota'] < 1 and 
-                self.params_cache[user_id]['outpaint_quota'] < 1):
+                self.params_cache[user_id]['outpaint_quota'] < 1 and
+                self.params_cache[user_id]['erase_quota'] < 1):
                 # 进行下一步的操作                
                 logger.debug("on_handle_context: 当前用户识图配额不够，不进行识别")
                 return
@@ -243,6 +254,10 @@ class stability(Plugin):
                 self.params_cache[user_id]['repair_quota'] = 0
                 self.call_repair_service(image_path, user_id, e_context)
             
+            if self.params_cache[user_id]['erase_quota'] > 0:
+                self.params_cache[user_id]['erase_quota'] = 0
+                self.call_erase_service(image_path, e_context)
+
             if self.params_cache[user_id]['doodle_quota'] > 0:
                 self.params_cache[user_id]['doodle_quota'] = 0
                 self.call_doodle_service(image_path, user_id, e_context)
@@ -393,6 +408,53 @@ class stability(Plugin):
                 rt = ReplyType.TEXT
                 reply = Reply(rt, rc)
                 logger.error("[stability] doodle service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            error = str(response.json())
+            rc= error
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] doodle service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def call_erase_service(self, image_path, e_context):
+        logger.info(f"calling erase service")
+        self.create_red_mask(image_path, "erase_mask.png")
+
+        response = requests.post(
+            f"{self.erase_url}",
+            headers={"authorization": f"Bearer {self.api_key}", "accept": "image/*"},
+
+            files={
+                'image': open(image_path, 'rb'),
+                'mask': open("./erase_mask.png", 'rb'),
+            },
+            data={
+                "output_format": "png",
+            },
+        )
+
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "erase" + str(uuid.uuid4()) + ".png" 
+            logger.info(f"get erase result, imagePath = {imgpath}")
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
+
+            image = self.img_to_png(imgpath)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] erase service exception")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
             else:
