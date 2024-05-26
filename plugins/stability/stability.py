@@ -318,14 +318,15 @@ class stability(Plugin):
         response = requests.post(
             f"{self.repair_url}",
             headers={
-                "Accept": "image/png",
+                "Accept": "image/*",
                 "Authorization": f"Bearer {self.api_key}"
             },
             files={
                 "image": open(image_path, "rb")
             },
             data={
-                "width": 1024,
+                "prompt": "Add more details to make the image more high-definition",
+                "output_format": "png"
             }
         )
 
