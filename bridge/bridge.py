@@ -36,7 +36,7 @@ class Bridge(object):
             self.btype["chat"] = const.GEMINI
         if model_type in [const.ZHIPU_AI]:
             self.btype["chat"] = const.ZHIPU_AI
-        if model_type and model_type.startswith("claude-3"):
+        if model_type and model_type.startswith("claude-3") and not model_type.startswith("claude-3-5"):
             self.btype["chat"] = const.CLAUDEAPI
 
         if model_type in ["claude"]:
