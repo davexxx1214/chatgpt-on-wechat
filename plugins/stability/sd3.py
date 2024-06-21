@@ -1,7 +1,7 @@
 import requests
 
 response = requests.post(
-    f"https://api.stability.ai/v2beta/stable-image/generate/sd3",
+    f"https://api.stability.ai/v2beta/stable-image/generate/ultra",
     headers={
         "authorization": f"Bearer sk-xxx",
         "accept": "image/*"
@@ -10,8 +10,7 @@ response = requests.post(
         "none": ''
     },
     data={
-        "prompt": "a dragon footprint with cyber style",
-        "model": "sd3",
+        "prompt": "AR scenes, Boy playing games wearing VR glasses, There are virtual game scenes in the scene，The character is scaled down in the picture ",
         "output_format": "png",
     },
 )

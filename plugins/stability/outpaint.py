@@ -7,19 +7,20 @@ response = requests.post(
         "accept": "image/*"
     },
     files={
-        "image": open("./1.png", "rb")
+        "image": open("./boy.png", "rb")
     },
     data={
         "left": 512,
         "down": 512,
         "right":512,
         "up":512,
+        "prompt":"",
         "output_format": "jpeg"
     },
 )
 
 if response.status_code == 200:
-    with open("./husky-in-a-huge-field.jpg", 'wb') as file:
+    with open("./result.jpg", 'wb') as file:
         file.write(response.content)
 else:
     raise Exception(str(response.json()))
