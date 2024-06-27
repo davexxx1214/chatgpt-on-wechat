@@ -65,6 +65,9 @@ class stability(Plugin):
             self.outpaint_url=self.config.get("outpaint_url","")
             self.outpaint_prefix = self.config.get("outpaint_prefix", "扩图")
             self.api_key = self.config.get("api_key", "")
+            self.glif_prefix = self.config.get("glif_prefix", "glif")
+            self.glif_api_key = self.config.get("glif_api_key", "")
+            self.glif_id = self.config.get("glif_id", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
             self.params_cache = ExpiredDict(500)
@@ -174,6 +177,19 @@ class stability(Plugin):
                     self.call_sd3_service(sd3_prompt, e_context)
                 else:
                     tip = f"💡欢迎使用sd3正式版绘图，指令格式为:\n\n{self.sd3_prefix}+ 空格 + 图片描述"
+                    reply = Reply(type=ReplyType.TEXT, content= tip)
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+
+            elif content.startswith(self.glif_prefix):
+                pattern = self.glif_prefix + r"\s(.+)"
+                match = re.match(pattern, content)
+                if match: ##   匹配上了glif的指令
+                    glif_prompt = content[len(self.glif_prefix):].strip()
+                    logger.info(f"glif_prompt = : {glif_prompt}")
+                    self.call_glif_service(glif_prompt, e_context)
+                else:
+                    tip = f"💡欢迎使用梗图生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 图片主题\n例如：{self.glif_prefix} 程序员"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
@@ -614,7 +630,41 @@ class stability(Plugin):
             e_context.action = EventAction.BREAK_PASS
 
 
-    
+    def call_glif_service(self, glif_prompt,e_context):
+        logger.info(f"calling glif service")
+        response = requests.post(
+            "https://simple-api.glif.app",
+            headers={
+                "Authorization": f"Bearer {self.glif_api_key}"
+            },
+            json={"id": f"{self.glif_id}", "inputs": [f"{glif_prompt}"]},
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            image_url = response_data.get('output')
+            if image_url is not '':
+                logger.info("glif image url = " + image_url)
+                rt = ReplyType.IMAGE_URL
+                rc = image_url
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rt = ReplyType.TEXT
+                rc = "梗图罢工了~"
+                reply = Reply(rt, rc)
+                logger.error("[stability] glif service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            error = str(response.json())
+            rc= error
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] glif service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
