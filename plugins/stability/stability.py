@@ -651,8 +651,10 @@ class stability(Plugin):
             image_url = response_data.get('output')
             if image_url is not None:
                 logger.info("glif image url = " + image_url)
-                # rt = ReplyType.IMAGE_URL
-                # rc = image_url
+                rt = ReplyType.IMAGE_URL
+                rc = image_url
+                self.send_reply(rc, e_context, rt)
+
                 downloaded_path = self.download_gif(image_url)
                 rt = ReplyType.FILE
                 rc = downloaded_path
@@ -694,6 +696,19 @@ class stability(Plugin):
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
+        
+    def send_reply(self, reply, e_context: EventContext, reply_type=ReplyType.TEXT):
+        if isinstance(reply, Reply):
+            if not reply.type and reply_type:
+                reply.type = reply_type
+        else:
+            reply = Reply(reply_type, reply)
+        channel = e_context['channel']
+        context = e_context['context']
+        # reply的包装步骤
+        rd = channel._decorate_reply(context, reply)
+        # reply的发送步骤
+        return channel._send_reply(context, rd)
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
