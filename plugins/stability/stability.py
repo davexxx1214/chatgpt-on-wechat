@@ -654,9 +654,8 @@ class stability(Plugin):
                 # rt = ReplyType.IMAGE_URL
                 # rc = image_url
                 downloaded_path = self.download_gif(image_url)
-                image = self.img_to_gif(downloaded_path)
-                rt = ReplyType.IMAGE
-                rc = image
+                rt = ReplyType.FILE
+                rc = downloaded_path
                 reply = Reply(rt, rc)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
