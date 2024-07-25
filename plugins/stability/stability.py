@@ -189,13 +189,13 @@ class stability(Plugin):
                     logger.info(f"glif_prompt = : {glif_prompt}")
                     self.call_glif_service(glif_prompt, e_context)
                 else:
-                    tip = f"💡欢迎使用梗图生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 图片主题\n例如：{self.glif_prefix} 程序员"
+                    tip = f"💡欢迎使用梗gif生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 主题\n例如：{self.glif_prefix} 绽放的烟花"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
 
             elif content.startswith(self.doodle_prefix):
-                # Call new function to handle search operation
+                # Call new function to handle search operationd
                 pattern = self.doodle_prefix + r"\s(.+)"
                 match = re.match(pattern, content)
                 if match: ##   匹配上了doodle的指令
@@ -637,7 +637,13 @@ class stability(Plugin):
             headers={
                 "Authorization": f"Bearer {self.glif_api_key}"
             },
-            json={"id": f"{self.glif_id}", "inputs": [f"{glif_prompt}"]},
+            json={"id": f"{self.glif_id}", 
+                  "inputs": {
+                    "prompt": f"{glif_prompt}",
+                    "creativity": "Medium",
+                    "format": "Animated GIF (Low quality - Low res)"
+                  }
+            } 
         )
 
         if response.status_code == 200:
