@@ -634,7 +634,7 @@ class stability(Plugin):
     def call_glif_service(self, glif_prompt,e_context):
         logger.info(f"calling glif service")
 
-        tip = '您的GIF正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{glif_prompt}'
+        tip = f'您的GIF正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{glif_prompt}'
         self.send_reply(tip, e_context)
 
         response = requests.post(
