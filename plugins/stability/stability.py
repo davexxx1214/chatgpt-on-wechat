@@ -654,8 +654,9 @@ class stability(Plugin):
                 # rt = ReplyType.IMAGE_URL
                 # rc = image_url
                 downloaded_path = self.download_gif(image_url)
-                rt = ReplyType.FILE
-                rc = downloaded_path
+                image = self.img_to_gif(downloaded_path)
+                rt = ReplyType.IMAGE
+                rc = image
                 reply = Reply(rt, rc)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -809,6 +810,19 @@ class stability(Plugin):
             idata = Image.open(io.BytesIO(content))
             idata = idata.convert("RGB")
             idata.save(image, format="JPEG")
+            return image
+        except Exception as e:
+            logger.error(e)
+            return False
+        
+    def img_to_gif(self, file_path):
+        try:
+            image = io.BytesIO()  # 创建一个 BytesIO 对象来存储图像数据
+            idata = Image.open(file_path)  # 使用文件路径打开图像
+
+            # 根据需要进行其他处理，这里我们保持原始模式，直接保存为 GIF
+            idata.save(image, format="GIF")  # 指定保存格式为GIF
+            image.seek(0)  # 将指针移动到流的开头
             return image
         except Exception as e:
             logger.error(e)
