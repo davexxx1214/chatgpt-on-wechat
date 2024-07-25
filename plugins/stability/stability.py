@@ -649,7 +649,7 @@ class stability(Plugin):
         if response.status_code == 200:
             response_data = response.json()
             image_url = response_data.get('output')
-            if image_url is not '':
+            if image_url is not None:
                 logger.info("glif image url = " + image_url)
                 # rt = ReplyType.IMAGE_URL
                 # rc = image_url
