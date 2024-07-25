@@ -651,14 +651,17 @@ class stability(Plugin):
             image_url = response_data.get('output')
             if image_url is not '':
                 logger.info("glif image url = " + image_url)
-                rt = ReplyType.IMAGE_URL
-                rc = image_url
+                # rt = ReplyType.IMAGE_URL
+                # rc = image_url
+                downloaded_path = self.download_gif(image_url)
+                rt = ReplyType.IMAGE
+                rc = downloaded_path
                 reply = Reply(rt, rc)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
             else:
                 rt = ReplyType.TEXT
-                rc = "梗图罢工了~"
+                rc = "gif罢工了~"
                 reply = Reply(rt, rc)
                 logger.error("[stability] glif service exception")
                 e_context["reply"] = reply
@@ -671,6 +674,26 @@ class stability(Plugin):
             logger.error("[stability] glif service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
+
+    def download_gif(self, url):
+        try:
+            # 创建临时目录
+            imgpath = TmpDir().path() + "gif" + str(uuid.uuid4()) + ".gif"      
+            # 下载 GIF 图片
+            response = requests.get(url, stream=True)
+            if response.status_code == 200:
+                with open(imgpath, 'wb') as f:
+                    for chunk in response.iter_content(1024):
+                        f.write(chunk)
+                print(f"GIF image downloaded and saved to: {imgpath}")
+                return imgpath
+            else:
+                print(f"Failed to download image. Status code: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
 
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
