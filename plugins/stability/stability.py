@@ -187,9 +187,10 @@ class stability(Plugin):
                 if match: ##   匹配上了glif的指令
                     glif_prompt = content[len(self.glif_prefix):].strip()
                     logger.info(f"glif_prompt = : {glif_prompt}")
+                    glif_prompt = self.translate_to_english(glif_prompt)
                     self.call_glif_service(glif_prompt, e_context)
                 else:
-                    tip = f"💡欢迎使用gif生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 主题\n例如：{self.glif_prefix} 绽放的烟花"
+                    tip = f"💡欢迎使用gif生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 主题(英文更佳)\n例如：{self.glif_prefix} a smiling cat"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
@@ -632,6 +633,10 @@ class stability(Plugin):
 
     def call_glif_service(self, glif_prompt,e_context):
         logger.info(f"calling glif service")
+
+        tip = '您的GIF正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{glif_prompt}'
+        self.send_reply(tip, e_context)
+
         response = requests.post(
             "https://simple-api.glif.app",
             headers={
@@ -651,6 +656,10 @@ class stability(Plugin):
             image_url = response_data.get('output')
             if image_url is not None:
                 logger.info("glif image url = " + image_url)
+                rt = ReplyType.TEXT
+                rc = '您的GIF已经准备好，点击图片下载即可保存GIF'
+                self.send_reply(rc, e_context, rt)
+                
                 rt = ReplyType.IMAGE_URL
                 rc = image_url
                 self.send_reply(rc, e_context, rt)
