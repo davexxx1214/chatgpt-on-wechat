@@ -654,7 +654,7 @@ class stability(Plugin):
                 # rt = ReplyType.IMAGE_URL
                 # rc = image_url
                 downloaded_path = self.download_gif(image_url)
-                rt = ReplyType.IMAGE
+                rt = ReplyType.FILE
                 rc = downloaded_path
                 reply = Reply(rt, rc)
                 e_context["reply"] = reply
