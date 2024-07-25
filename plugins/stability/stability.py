@@ -189,7 +189,7 @@ class stability(Plugin):
                     logger.info(f"glif_prompt = : {glif_prompt}")
                     self.call_glif_service(glif_prompt, e_context)
                 else:
-                    tip = f"💡欢迎使用梗gif生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 主题\n例如：{self.glif_prefix} 绽放的烟花"
+                    tip = f"💡欢迎使用gif生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 主题\n例如：{self.glif_prefix} 绽放的烟花"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
