@@ -657,7 +657,7 @@ class stability(Plugin):
             if image_url is not None:
                 logger.info("glif image url = " + image_url)
                 rt = ReplyType.TEXT
-                rc = '您的GIF已经准备好，点击图片下载即可保存GIF'
+                rc = '您的GIF已经准备好，点击图片下载即可保存GIF，点击文件可查看效果'
                 self.send_reply(rc, e_context, rt)
                 
                 rt = ReplyType.IMAGE_URL
