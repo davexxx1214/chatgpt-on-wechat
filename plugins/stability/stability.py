@@ -66,6 +66,7 @@ class stability(Plugin):
             self.outpaint_prefix = self.config.get("outpaint_prefix", "扩图")
             self.api_key = self.config.get("api_key", "")
             self.glif_prefix = self.config.get("glif_prefix", "glif")
+            self.flux_prefix = self.config.get("flux_prefix", "flux")
             self.glif_api_key = self.config.get("glif_api_key", "")
             self.glif_id = self.config.get("glif_id", "")
             self.total_timeout = self.config.get("total_timeout", 5)
@@ -191,6 +192,20 @@ class stability(Plugin):
                     self.call_glif_service(glif_prompt, e_context)
                 else:
                     tip = f"💡欢迎使用gif生成器，指令格式为:\n\n{self.glif_prefix}+ 空格 + 主题(英文更佳)\n例如：{self.glif_prefix} a smiling cat"
+                    reply = Reply(type=ReplyType.TEXT, content= tip)
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+                
+            elif content.startswith(self.flux_prefix):
+                pattern = self.flux_prefix + r"\s(.+)"
+                match = re.match(pattern, content)
+                if match: ##   匹配上了glif的指令
+                    flux_prompt = content[len(self.flux_prefix):].strip()
+                    logger.info(f"flux_prompt = : {flux_prompt}")
+                    flux_prompt = self.translate_to_english(flux_prompt)
+                    self.call_flux_service(flux_prompt, e_context)
+                else:
+                    tip = f"💡欢迎使用flux绘图，指令格式为:\n\n{self.flux_prefix}+ 空格 + 主题(英文更佳)\n例如：{self.flux_prefix} a smiling cat"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
@@ -683,6 +698,50 @@ class stability(Plugin):
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] glif service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def call_flux_service(self, flux_prompt,e_context):
+        logger.info(f"calling glif service")
+
+        tip = f'您的提示词已经自动翻译成英文，图片正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{flux_prompt}'
+        self.send_reply(tip, e_context)
+
+        response = requests.post(
+            "https://simple-api.glif.app",
+            headers={
+                "Authorization": f"Bearer {self.glif_api_key}"
+            },
+            json={"id": "clzj0ocd5000gnhgx4ciiw97i", 
+                  "inputs": {
+                    "basic-prompt": f"{flux_prompt}"
+                  }
+            } 
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            image_url = response_data.get('output')
+            if image_url is not None:
+                logger.info("flux image url = " + image_url)
+                rt = ReplyType.IMAGE_URL
+                rc = image_url
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rt = ReplyType.TEXT
+                rc = "flux罢工了~"
+                reply = Reply(rt, rc)
+                logger.error("[stability] glif service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            error = str(response.json())
+            rc= error
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] flux service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
