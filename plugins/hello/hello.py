@@ -25,6 +25,9 @@ class Hello(Plugin):
         self.config = super().load_config()
 
     def on_handle_context(self, e_context: EventContext):
+        context_type = e_context["context"].type
+        logger.info(f"on_handle_context triggered. Context type: {context_type}")
+        
         if e_context["context"].type not in [
             ContextType.TEXT,
             ContextType.JOIN_GROUP,
