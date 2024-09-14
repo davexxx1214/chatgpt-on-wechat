@@ -11,7 +11,7 @@ from config import conf
 
 @plugins.register(
     name="Hello",
-    desire_priority=-1,
+    desire_priority=2,
     hidden=True,
     desc="A simple plugin that says hello",
     version="0.1",
