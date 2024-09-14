@@ -11,7 +11,7 @@ from config import conf
 
 @plugins.register(
     name="Hello",
-    desire_priority=2,
+    desire_priority=-1,
     hidden=True,
     desc="A simple plugin that says hello",
     version="0.1",
@@ -80,23 +80,24 @@ class Hello(Plugin):
 
         content = e_context["context"].content
         logger.debug("[Hello] on_handle_context. content: %s" % content)
-        if content == "Hello":
+        if content == "Hello" or content == "hello" or content == "Hi" or content == "hi":
             reply = Reply()
             reply.type = ReplyType.TEXT
             msg: ChatMessage = e_context["context"]["msg"]
-            if e_context["context"]["isgroup"]:
-                reply.content = f"Hello, {msg.actual_user_nickname} from {msg.from_user_nickname}"
-            else:
-                reply.content = f"Hello, {msg.from_user_nickname}"
+            # if e_context["context"]["isgroup"]:
+            #     reply.content = f"Hello, {msg.actual_user_nickname} from {msg.from_user_nickname}"
+            # else:
+            #     reply.content = f"Hello, {msg.from_user_nickname}"
+            reply.content = conf().get("group_welcome_msg", "hello")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS  # 事件结束，并跳过处理context的默认逻辑
 
-        if content == "Hi":
-            reply = Reply()
-            reply.type = ReplyType.TEXT
-            reply.content = "Hi"
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK  # 事件结束，进入默认处理逻辑，一般会覆写reply
+        # if content == "Hi" or content == "hi":
+        #     reply = Reply()
+        #     reply.type = ReplyType.TEXT
+        #     reply.content = "Hi"
+        #     e_context["reply"] = reply
+        #     e_context.action = EventAction.BREAK  # 事件结束，进入默认处理逻辑，一般会覆写reply
 
         if content == "End":
             # 如果是文本消息"End"，将请求转换成"IMAGE_CREATE"，并将content设置为"The World"
