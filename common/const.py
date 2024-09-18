@@ -9,7 +9,7 @@ CLAUDEAI = "claude"
 CLAUDEAPI= "claudeAPI"
 QWEN = "qwen"
 GEMINI = "gemini"
-ZHIPU_AI = "glm-4-plus"
+ZHIPU_AI = "glm-4-airx"
 MOONSHOT = "moonshot"
 
 
