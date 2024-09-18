@@ -3,7 +3,7 @@ from common.log import logger
 
 
 class ZhipuAISession(Session):
-    def __init__(self, session_id, system_prompt=None, model="glm-4"):
+    def __init__(self, session_id, system_prompt=None, model="glm-4-airx"):
         super().__init__(session_id, system_prompt)
         self.model = model
         self.reset()

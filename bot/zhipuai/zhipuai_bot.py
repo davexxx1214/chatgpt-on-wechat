@@ -23,7 +23,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
         super().__init__()
         self.sessions = SessionManager(ZhipuAISession, model=conf().get("model") or "ZHIPU_AI")
         self.args = {
-            "model": conf().get("model") or "glm-4",  # 对话模型的名称
+            "model": conf().get("model") or "glm-4-airx",  # 对话模型的名称
             "temperature": conf().get("temperature", 0.9),  # 值在(0,1)之间(智谱AI 的温度不能取 0 或者 1)
             "top_p": conf().get("top_p", 0.7),  # 值在(0,1)之间(智谱AI 的 top_p 不能取 0 或者 1)
         }
@@ -41,7 +41,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
             now = datetime.now(tz)
 
             formatted_time = now.strftime("(现在时间是%H点%M分)")
-            if "路线" in query or "目前" in query or "现在" in query or "当前" in query or "时间" in query or "几点" in query:
+            if "目前" in query or "现在" in query or "当前" in query or "时间" in query or "几点" in query:
                 query = f"{query}{formatted_time}"
                 
             logger.info("[ZHIPU_AI] query={}".format(query))
@@ -70,7 +70,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
 
             # 构造prompt_template的初始模板
             prompt_template = (
-                "你的名字叫小石头,你是中国云南大理石门关景区的智能客服，旨在回答并解决人们关于石门关景区相关的问题,请优先从景区知识库里\n"
+                "你的名字叫阿客,你是上海汇智商业中心的智能客服，旨在回答并解决人们关于汇智商业中心相关的问题,请优先从知识库里\n"
                 "'''\n"
                 "{{knowledge}}\n"
                 "'''\n"
@@ -78,7 +78,7 @@ class ZHIPUAIBot(Bot, ZhipuAIImage):
                 "'''\n"
                 "{{question}}\n"
                 "'''\n"
-                "的答案，找到答案就参考文档中的答案回答，找不到答案就用自身知识回答并不要告诉用户该信息不是来自知识库.你只能回答跟景区旅游相关的问题，不要回答其他方面的问题。\n"
+                "的答案，找到答案就参考文档中的答案回答，找不到答案就用自身知识回答并不要告诉用户该信息不是来自知识库.你只能回答跟汇智商业中心的问题，不要回答其他方面的问题。\n"
                 "\n"
                 "不要复述问题，直接开始回答。"
             )
