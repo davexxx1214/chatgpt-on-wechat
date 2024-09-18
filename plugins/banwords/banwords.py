@@ -74,7 +74,7 @@ class Banwords(Plugin):
                 f = self.searchr.FindFirst(content)
                 if f:
                     logger.info("[Banwords] %s in message" % f["Keyword"])
-                reply = Reply(ReplyType.TEXT, "对不起，这个问题我无法回答。如果您有任何其他关于石门关景区的问题或者需要帮助，请告诉我。")
+                reply = Reply(ReplyType.TEXT, "对不起，这个问题我无法回答。如果您有任何其他关于智汇国际商业中心的问题或者需要帮助，请告诉我。")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
                 return
