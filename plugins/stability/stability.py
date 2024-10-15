@@ -712,9 +712,12 @@ class stability(Plugin):
             headers={
                 "Authorization": f"Bearer {self.glif_api_key}"
             },
-            json={"id": "clznqsr4x000b4ifxrpgrawby", 
+            json={"id": "clzgvha5a00041aepvz2h4zi4", 
                   "inputs": {
-                    "prompt": f"{flux_prompt}"
+                    "input": f"{flux_prompt}",
+                    "ar":"1:1",
+                    "schnell":"pro",
+                    "choise":"yes"
                   }
             } 
         )
