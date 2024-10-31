@@ -69,6 +69,8 @@ class stability(Plugin):
             self.flux_prefix = self.config.get("flux_prefix", "flux")
             self.glif_api_key = self.config.get("glif_api_key", "")
             self.glif_id = self.config.get("glif_id", "")
+            self.recraft_prefix = self.config.get("recraft_prefix", "recraft")
+            self.recraft_api_key = self.config.get("recraft_api_key", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
             self.params_cache = ExpiredDict(500)
@@ -206,6 +208,20 @@ class stability(Plugin):
                     self.call_flux_service(flux_prompt, e_context)
                 else:
                     tip = f"💡欢迎使用flux绘图，指令格式为:\n\n{self.flux_prefix}+ 空格 + 主题(英文更佳)\n例如：{self.flux_prefix} a smiling cat"
+                    reply = Reply(type=ReplyType.TEXT, content= tip)
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+
+            elif content.startswith(self.recraft_prefix):
+                pattern = self.recraft_prefix + r"\s(.+)"
+                match = re.match(pattern, content)
+                if match: ##   匹配上了recraft的指令
+                    recraft_prompt = content[len(self.recraft_prefix):].strip()
+                    logger.info(f"recraft_prompt = : {recraft_prompt}")
+                    recraft_prompt = self.translate_to_english(recraft_prompt)
+                    self.call_recraft_service(recraft_prompt, e_context)
+                else:
+                    tip = f"💡欢迎使用Recraft V3绘图，指令格式为:\n\n{self.recraft_prefix}+ 空格 + 主题(英文更佳)\n例如：{self.recraft_prefix} a smiling cat"
                     reply = Reply(type=ReplyType.TEXT, content= tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
@@ -716,7 +732,7 @@ class stability(Plugin):
                   "inputs": {
                     "input": f"{flux_prompt}",
                     "ar":"1:1",
-                    "schnell":"pro",
+                    "schnell":"schnell",
                     "choise":"yes"
                   }
             } 
@@ -745,6 +761,46 @@ class stability(Plugin):
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] flux service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def call_recraft_service(self, recraft_prompt,e_context):
+        logger.info(f"calling recraft service")
+
+        tip = f'您的提示词已经自动翻译成英文，图片正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{recraft_prompt}'
+        self.send_reply(tip, e_context)
+
+        response = requests.post(
+            "https://external.api.recraft.ai/v1/images/generations",
+            headers={
+                "Authorization": f"Bearer {self.recraft_api_key}"
+            },
+            json={"prompt": f"{recraft_prompt}"} 
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            image_url = response_data.get('data', [{}])[0].get('url')
+            if image_url is not None:
+                logger.info("recraft image url = " + image_url)
+                rt = ReplyType.IMAGE_URL
+                rc = image_url
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rt = ReplyType.TEXT
+                rc = "recraft罢工了~"
+                reply = Reply(rt, rc)
+                logger.error("[stability] recraft service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            error = str(response.json())
+            rc= error
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] recraft service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
