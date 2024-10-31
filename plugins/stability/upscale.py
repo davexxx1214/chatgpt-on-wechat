@@ -1,16 +1,15 @@
 import requests
 
 response = requests.post(
-    f"https://api.stability.ai/v2beta/stable-image/upscale/conservative",
+    f"https://api.stability.ai/v2beta/stable-image/upscale/fast",
     headers={
         "authorization": f"Bearer sk-xxx",
         "accept": "image/*"
     },
     files={
-        "image": open("./1.jpg", "rb")
+        "image": open("./1.png", "rb")
     },
     data={
-        "prompt": "more details",
         "output_format": "png",
     },
 )
