@@ -24,7 +24,6 @@ from common.utils import convert_webp_to_png, remove_markdown_symbol
 from config import conf, get_appdata_dir
 from lib import itchat
 from lib.itchat.content import *
-from PIL import Image
 
 
 @itchat.msg_register([TEXT, VOICE, PICTURE, NOTE, ATTACHMENT, SHARING])
@@ -235,22 +234,14 @@ class WechatChannel(ChatChannel):
                 image_storage.write(block)
             logger.info(f"[WX] download image success, size={size}, img_url={img_url}")
             image_storage.seek(0)
-            # 检查图像格式
-            try:
-                with Image.open(image_storage) as img:
-                    logger.info(f"图片格式：{img.format}")
-                    if img.format == 'WEBP':
-                        logger.info("图片为 WEBP 格式，正在转换为 PNG")
-                        image_storage = convert_webp_to_png(image_storage)
-            except Exception as e:
-                logger.error(f"Failed to process image: {e}")
-                return
-            
-            try:
-                itchat.send_image(image_storage, toUserName=receiver)
-                logger.info(f"[WX] 发送图片成功，url={img_url}, receiver={receiver}")
-            except Exception as e:
-                logger.error(f"发送图片时出错：{e}")
+            if ".webp" in img_url:
+                try:
+                    image_storage = convert_webp_to_png(image_storage)
+                except Exception as e:
+                    logger.error(f"Failed to convert image: {e}")
+                    return
+            itchat.send_image(image_storage, toUserName=receiver)
+            logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
             image_storage = reply.content
             image_storage.seek(0)
@@ -303,4 +294,3 @@ def _send_qr_code(qrcode_list: list):
             chat_client.send_qrcode(qrcode_list)
     except Exception as e:
         pass
-
