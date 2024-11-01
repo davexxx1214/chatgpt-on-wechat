@@ -234,7 +234,7 @@ class WechatChannel(ChatChannel):
                 image_storage.write(block)
             logger.info(f"[WX] download image success, size={size}, img_url={img_url}")
             image_storage.seek(0)
-            if ".webp" in img_url:
+            if ".webp" in img_url or "recraft.ai" in img_url:
                 try:
                     image_storage = convert_webp_to_png(image_storage)
                 except Exception as e:
