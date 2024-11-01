@@ -20,12 +20,10 @@ from common.expired_dict import ExpiredDict
 from common.log import logger
 from common.singleton import singleton
 from common.time_check import time_checker
-from common.utils import convert_webp_to_png
+from common.utils import convert_webp_to_png, remove_markdown_symbol
 from config import conf, get_appdata_dir
 from lib import itchat
 from lib.itchat.content import *
-from urllib.parse import quote
-from PIL import Image
 
 
 @itchat.msg_register([TEXT, VOICE, PICTURE, NOTE, ATTACHMENT, SHARING])
@@ -214,29 +212,19 @@ class WechatChannel(ChatChannel):
     # 统一的发送函数，每个Channel自行实现，根据reply的type字段发送不同类型的消息
     def send(self, reply: Reply, context: Context):
         receiver = context["receiver"]
-        nick_name = context["msg"].actual_user_nickname
         if reply.type == ReplyType.TEXT:
-            nick_name_black_list = conf().get("nick_name_black_list", [])
-            for black_name in nick_name_black_list:
-                logger.info(f"[WX]black list name = {black_name}")
-            
-            logger.info(f"[WX]receiver nick name = {nick_name}")
-
-            if nick_name and nick_name in nick_name_black_list:
-                # 黑名单过滤
-                logger.info(f"[WX] receiver Nickname {nick_name} in In BlackList, ignore")
-                return None
-
+            reply.content = remove_markdown_symbol(reply.content)
             itchat.send(reply.content, toUserName=receiver)
             logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
         elif reply.type == ReplyType.ERROR or reply.type == ReplyType.INFO:
+            reply.content = remove_markdown_symbol(reply.content)
             itchat.send(reply.content, toUserName=receiver)
             logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
         elif reply.type == ReplyType.VOICE:
             itchat.send_file(reply.content, toUserName=receiver)
             logger.info("[WX] sendFile={}, receiver={}".format(reply.content, receiver))
         elif reply.type == ReplyType.IMAGE_URL:  # 从网络下载图片
-            img_url = quote(reply.content, safe=':/')
+            img_url = reply.content
             logger.debug(f"[WX] start download image, img_url={img_url}")
             pic_res = requests.get(img_url, stream=True)
             image_storage = io.BytesIO()
@@ -246,15 +234,12 @@ class WechatChannel(ChatChannel):
                 image_storage.write(block)
             logger.info(f"[WX] download image success, size={size}, img_url={img_url}")
             image_storage.seek(0)
-            # 检查图像格式
-            try:
-                with Image.open(image_storage) as img:
-                    if img.format == 'WEBP':
-                        logger.debug("Image is in WEBP format, converting to PNG.")
-                        image_storage = convert_webp_to_png(image_storage)
-            except Exception as e:
-                logger.error(f"Failed to process image: {e}")
-                return
+            if ".webp" in img_url:
+                try:
+                    image_storage = convert_webp_to_png(image_storage)
+                except Exception as e:
+                    logger.error(f"Failed to convert image: {e}")
+                    return
             itchat.send_image(image_storage, toUserName=receiver)
             logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
