@@ -238,13 +238,19 @@ class WechatChannel(ChatChannel):
             # 检查图像格式
             try:
                 with Image.open(image_storage) as img:
+                    logger.info(f"图片格式：{img.format}")
                     if img.format == 'WEBP':
-                        logger.debug("Image is in WEBP format, converting to PNG.")
+                        logger.info("图片为 WEBP 格式，正在转换为 PNG")
                         image_storage = convert_webp_to_png(image_storage)
             except Exception as e:
                 logger.error(f"Failed to process image: {e}")
-            itchat.send_image(image_storage, toUserName=receiver)
-            logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
+                return
+            
+            try:
+                itchat.send_image(image_storage, toUserName=receiver)
+                logger.info(f"[WX] 发送图片成功，url={img_url}, receiver={receiver}")
+            except Exception as e:
+                logger.error(f"发送图片时出错：{e}")
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
             image_storage = reply.content
             image_storage.seek(0)
