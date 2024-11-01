@@ -24,6 +24,7 @@ from common.utils import convert_webp_to_png, remove_markdown_symbol
 from config import conf, get_appdata_dir
 from lib import itchat
 from lib.itchat.content import *
+from PIL import Image
 
 
 @itchat.msg_register([TEXT, VOICE, PICTURE, NOTE, ATTACHMENT, SHARING])
@@ -234,12 +235,14 @@ class WechatChannel(ChatChannel):
                 image_storage.write(block)
             logger.info(f"[WX] download image success, size={size}, img_url={img_url}")
             image_storage.seek(0)
-            if ".webp" in img_url:
-                try:
-                    image_storage = convert_webp_to_png(image_storage)
-                except Exception as e:
-                    logger.error(f"Failed to convert image: {e}")
-                    return
+            # 检查图像格式
+            try:
+                with Image.open(image_storage) as img:
+                    if img.format == 'WEBP':
+                        logger.debug("Image is in WEBP format, converting to PNG.")
+                        image_storage = convert_webp_to_png(image_storage)
+            except Exception as e:
+                logger.error(f"Failed to process image: {e}")
             itchat.send_image(image_storage, toUserName=receiver)
             logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
