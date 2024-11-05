@@ -831,7 +831,7 @@ class MidJourney(Plugin):
             return False, "[MJ] 认证失败"
 
     def imagine(self, prompt, base64, e_context: EventContext):
-        logger.info("[MJ] /imagine prompt={} img={}".format(prompt, base64))
+        logger.info("[MJ] /imagine prompt={}".format(prompt))
         status, msg, id = self.mj.imagine(prompt, base64)
         return self._reply(status, msg, id, e_context)
 
