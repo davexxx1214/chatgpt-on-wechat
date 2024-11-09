@@ -720,7 +720,7 @@ class stability(Plugin):
     def call_flux_service(self, flux_prompt,e_context):
         logger.info(f"calling glif service")
 
-        tip = f'欢迎使用Recraft V3.\n💡您的提示词已经自动翻译成英文，图片正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{flux_prompt}'
+        tip = f'欢迎使用Flux.\n💡您的提示词已经自动翻译成英文，图片正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{flux_prompt}'
         self.send_reply(tip, e_context)
 
         response = requests.post(
@@ -767,7 +767,7 @@ class stability(Plugin):
     def call_recraft_service(self, recraft_prompt,e_context):
         logger.info(f"calling recraft service")
 
-        tip = f'您的提示词已经自动翻译成英文，图片正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{recraft_prompt}'
+        tip = f'欢迎使用Recraft V3.\n💡您的提示词已经自动翻译成英文，图片正在生成中，请耐心等待1-2分钟。\n当前使用的提示词为：\n{recraft_prompt}'
         self.send_reply(tip, e_context)
 
         response = requests.post(
