@@ -24,6 +24,7 @@ from common.utils import convert_webp_to_png, remove_markdown_symbol
 from config import conf, get_appdata_dir
 from lib import itchat
 from lib.itchat.content import *
+import imghdr
 
 
 @itchat.msg_register([TEXT, VOICE, PICTURE, NOTE, ATTACHMENT, SHARING])
@@ -233,9 +234,40 @@ class WechatChannel(ChatChannel):
                 size += len(block)
                 image_storage.write(block)
             logger.info(f"[WX] download image success, size={size}, img_url={img_url}")
+            # 保存图片到tmp目录
+            try:
+                # 在当前目录下创建tmp文件夹
+                tmp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmp")
+                os.makedirs(tmp_dir, exist_ok=True)
+                
+                # 检测图片实际格式
+                file_ext = '.png'  # 默认扩展名
+                image_data = image_storage.getvalue()
+                image_type = imghdr.what(None, image_data)  # 使用imghdr检测实际格式
+                if image_type:
+                    file_ext = f'.{image_type}'
+                
+                # 如果是来自recraft.ai的图片，强制当作webp处理
+                if "recraft.ai" in img_url:
+                    file_ext = '.webp'
+                
+                # 生成文件名：时间戳_随机数.扩展名
+                file_name = f"{int(time.time())}_{hash(img_url) % 10000:04d}{file_ext}"
+                file_path = os.path.join(tmp_dir, file_name)
+                
+                with open(file_path, "wb") as f:
+                    f.write(image_storage.getvalue())
+                logger.info(f"[WX] Image saved to {file_path}")
+                
+                image_storage.seek(0)  # 重置文件指针位置
+            except Exception as e:
+                logger.error(f"[WX] Failed to save image: {e}")
+                # 保存失败不影响后续发送
+            
             image_storage.seek(0)
             if ".webp" in img_url or "recraft.ai" in img_url:
                 try:
+                    logger.info(f"convert webp to png")
                     image_storage = convert_webp_to_png(image_storage)
                 except Exception as e:
                     logger.error(f"Failed to convert image: {e}")
