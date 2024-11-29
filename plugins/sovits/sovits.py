@@ -125,7 +125,9 @@ class sovits(Plugin):
                             azure_voice_service = AzureVoice()
                             if voice_type:
                                 azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings[voice_type]
-                            reply = azure_voice_service.textToVoice(text.strip())
+                                reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                            else:
+                                reply = azure_voice_service.textToVoice(text.strip())
                         else:
                             reply = Reply(type=ReplyType.TEXT, content=tip)
                     else:

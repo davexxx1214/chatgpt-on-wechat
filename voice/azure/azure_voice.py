@@ -69,8 +69,11 @@ class AzureVoice(Voice):
             reply = Reply(ReplyType.ERROR, "抱歉，语音识别失败")
         return reply
 
-    def textToVoice(self, text):
-        if self.config.get("auto_detect"):
+    def textToVoice(self, text, use_auto_detect=None):
+        # If use_auto_detect is provided, use it; otherwise use the config value
+        should_auto_detect = self.config.get("auto_detect") if use_auto_detect is None else use_auto_detect
+        
+        if should_auto_detect:
             lang = classify(text)[0]
             key = "speech_synthesis_" + lang
             if key in self.config:
@@ -78,8 +81,7 @@ class AzureVoice(Voice):
                 self.speech_config.speech_synthesis_voice_name = self.config[key]
             else:
                 self.speech_config.speech_synthesis_voice_name = self.config["speech_synthesis_voice_name"]
-        else:
-            self.speech_config.speech_synthesis_voice_name = self.config["speech_synthesis_voice_name"]
+        # else: keep the current speech_synthesis_voice_name setting
         # Avoid the same filename under multithreading
         fileName = TmpDir().path() + "reply-" + str(int(time.time())) + "-" + str(hash(text) & 0x7FFFFFFF) + ".wav"
         audio_config = speechsdk.AudioConfig(filename=fileName)
