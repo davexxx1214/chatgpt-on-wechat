@@ -850,10 +850,9 @@ class stability(Plugin):
                 rt = ReplyType.TEXT
                 rc = "即梦图片生成完毕。"
                 reply = Reply(rt, rc)
-                logger.error("[stability] jimeng service exception")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
-                
+
             else:
                 rt = ReplyType.TEXT
                 rc = "jimeng生成图片失败~"
