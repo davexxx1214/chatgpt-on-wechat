@@ -282,7 +282,6 @@ class stability(Plugin):
                 if match: ##   匹配上了jimeng的指令
                     jimeng_prompt = content[len(self.jimeng_prefix):].strip()
                     logger.info(f"jimeng_prompt = : {jimeng_prompt}")
-                    jimeng_prompt = self.translate_to_english(jimeng_prompt)
                     self.call_jimeng_service(jimeng_prompt, e_context)
                 else:
                     tip = f"💡欢迎使用即梦AI绘图，指令格式为:\n\n{self.jimeng_prefix}+ 空格 + 主题(支持中文)\n例如：{self.jimeng_prefix} 一只可爱的猫"
@@ -846,8 +845,7 @@ class stability(Plugin):
                         logger.info("jimeng image url = " + url)
                         rt = ReplyType.IMAGE_URL
                         rc = url
-                        reply = Reply(rt, rc)
-                        e_context["reply"] = reply
+                        self.send_reply(rc, e_context, rt)
                 e_context.action = EventAction.BREAK_PASS
             else:
                 rt = ReplyType.TEXT
