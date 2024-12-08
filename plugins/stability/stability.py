@@ -71,6 +71,9 @@ class stability(Plugin):
             self.glif_id = self.config.get("glif_id", "")
             self.recraft_prefix = self.config.get("recraft_prefix", "recraft")
             self.recraft_api_key = self.config.get("recraft_api_key", "")
+            self.jimeng_prefix = self.config.get("jimeng_prefix", "jimeng")
+            self.jimeng_api_key = self.config.get("jimeng_api_key", "")
+            self.jimeng_url = self.config.get("jimeng_url", "")
             self.total_timeout = self.config.get("total_timeout", 5)
 
             self.params_cache = ExpiredDict(500)
@@ -272,6 +275,20 @@ class stability(Plugin):
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
+
+            elif content.startswith(self.jimeng_prefix):
+                pattern = self.jimeng_prefix + r"\s(.+)"
+                match = re.match(pattern, content)
+                if match: ##   匹配上了jimeng的指令
+                    jimeng_prompt = content[len(self.jimeng_prefix):].strip()
+                    logger.info(f"jimeng_prompt = : {jimeng_prompt}")
+                    jimeng_prompt = self.translate_to_english(jimeng_prompt)
+                    self.call_jimeng_service(jimeng_prompt, e_context)
+                else:
+                    tip = f"💡欢迎使用即梦AI绘图，指令格式为:\n\n{self.jimeng_prefix}+ 空格 + 主题(支持中文)\n例如：{self.jimeng_prefix} 一只可爱的猫"
+                    reply = Reply(type=ReplyType.TEXT, content= tip)
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
 
         elif context.type == ContextType.IMAGE:
             if (self.params_cache[user_id]['inpaint_quota'] < 1 and 
@@ -801,6 +818,50 @@ class stability(Plugin):
             rt = ReplyType.TEXT
             reply = Reply(rt, rc)
             logger.error("[stability] recraft service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def call_jimeng_service(self, jimeng_prompt, e_context):
+        logger.info(f"calling jimeng service")
+
+        tip = f'欢迎使用即梦AI.\n💡图片正在生成中，请耐心等待。\n当前使用的提示词为：\n{jimeng_prompt}'
+        self.send_reply(tip, e_context)
+
+        response = requests.post(
+            f"{self.jimeng_url}/v1/images/generations",
+            headers={
+                "Authorization": f"Bearer {self.jimeng_api_key}"
+            },
+            json={"prompt": f"{jimeng_prompt}"} 
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            data_list = response_data.get('data', [])
+            if data_list:
+                # 遍历所有生成的图片URL并发送
+                for item in data_list:
+                    url = item.get('url')
+                    if url:
+                        logger.info("jimeng image url = " + url)
+                        rt = ReplyType.IMAGE_URL
+                        rc = url
+                        reply = Reply(rt, rc)
+                        e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            else:
+                rt = ReplyType.TEXT
+                rc = "jimeng生成图片失败~"
+                reply = Reply(rt, rc)
+                logger.error("[stability] jimeng service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+        else:
+            error = str(response.json())
+            rc = error
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] jimeng service exception")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
