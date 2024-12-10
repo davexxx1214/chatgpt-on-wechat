@@ -257,21 +257,8 @@ class stability(Plugin):
                 e_context.action = EventAction.BREAK_PASS
 
             elif content.startswith(self.upscale_prefix):
-                # Call new function to handle search operation
-                pattern = self.upscale_prefix + r"\s(.+)"
-                match = re.match(pattern, content)
-                if match: ##   匹配上了upscale的指令
-                    upscale_prompt = content[len(self.upscale_prefix):].strip()
-                    upscale_prompt = self.translate_to_english(upscale_prompt)
-                    logger.info(f"upscale_prompt = : {upscale_prompt}")
-
-                    self.params_cache[user_id]['upscale_prompt'] = upscale_prompt
-                    self.params_cache[user_id]['upscale_quota'] = 1
-                    tip = f"💡已经开启图片高清化服务，请再发送一张图片进行处理(分辨率低于1024*1024)"
-
-                else:
-                    tip = f"💡欢迎使用图片高清化服务，高清化指令格式为:\n\n{self.upscale_prefix}+ 空格 + 有侧重点的详细描述\n\n(注意:仅支持分辨率低于1024*1024的图片)"
-
+                self.params_cache[user_id]['upscale_quota'] = 1
+                tip = f"💡已经开启图片高清化服务，请再发送一张图片进行处理(分辨率小于1536*1536)"
                 reply = Reply(type=ReplyType.TEXT, content= tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -905,106 +892,47 @@ class stability(Plugin):
     def call_upscale_service(self, image_path, user_id, e_context):
         logger.info(f"calling upscale service")
 
-        upscale_prompt = self.params_cache[user_id]['upscale_prompt']        
-
         response = requests.post(
             f"{self.upscale_url}",
             headers={
-                "authorization": f"Bearer {self.api_key}",
-                 "accept": "image/*"
+                "Accept": "image/*",
+                "Authorization": f"Bearer {self.api_key}"
             },
             files={
                 "image": open(image_path, "rb")
             },
             data={
-                "prompt": upscale_prompt,
-                "output_format": "jpeg",
-            },
+                "output_format": "png"
+            }
         )
 
-        if response.json().get('errors') is not None:
-            rc= "图片高清化失败,可能是图片分辨率太高"
-            rt = ReplyType.TEXT
-            reply = Reply(rt, rc)
-            logger.error("[stability] upscale service exception")
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
+        if response.status_code == 200:
+            imgpath = TmpDir().path() + "upscale" + str(uuid.uuid4()) + ".png" 
+            with open(imgpath, 'wb') as file:
+                file.write(response.content)
+            
+            rt = ReplyType.IMAGE
 
-        elif response.json().get('id') is not None:
-            task_id = response.json().get('id')
-            logger.info(f"task id = {task_id}")
-            status, msg, imgcontent = self.get_upscale_result(task_id)
-            rt = ReplyType.TEXT
-            rc = msg
-            if not status:
-                rt = ReplyType.ERROR
-                rc = msg
-
-            if status and imgcontent:
-                rt = ReplyType.IMAGE
-                image = self.img_to_jpeg(imgcontent)
-                rc = image
-                
-
-            if not rc:
-                rt = ReplyType.ERROR
-                rc = "图片高清化失败"
-
-            reply = Reply(rt, rc)
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
-
-        else:
-            error = str(response.json())
-            rc= error
-            rt = ReplyType.TEXT
-            reply = Reply(rt, rc)
-            logger.error("[stability] upscale service exception")
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
-
-    # 轮询获取任务结果
-    def get_upscale_result(self, task_id):
-        start_time = time.time()  # 记录开始时间
-        total_timeout = 60 * self.total_timeout  # 总超时时间
-
-        try:
-            headers = {
-                'Accept': "image/*",  # Use 'application/json' to receive base64 encoded JSON
-                'authorization': f"Bearer {self.api_key}"
-            }
-            url = f"{self.upscale_url}/result/{task_id}"
-            status_code = -1
-
-            while  status_code == 202:
-                # 检查是否已经超过总超时时间
-                if (time.time() - start_time) > total_timeout:
-                    logger.debug("❌ 超过最大等待时间")
-                    return False, "❌ 请求失败：超过最大等待时间", ""
-                
-                time.sleep(5)
-                response = requests.get(url, headers=headers, timeout=60) # 注意单次请求也设了超时时间
-                status_code = response.status_code
-                logger.info(f"正在查询任务，id = {task_id}, status code = {status_code}")
-
-
-            if status_code == 200:
-                imgpath = TmpDir().path() + "upscale" + str(uuid.uuid4()) + ".jpg" 
-                with open(imgpath, 'wb') as file:
-                    file.write(response.content)
-                logger.info(f"imgpath = {imgpath}")
-                msg = "图片高清化成功"
-                return True, msg, response.content
-            elif status_code == 403:
-                return False, "请求失败，可能是某些内容没有通过安全审查", ""
-            elif status_code == 500:
-                return False, "请求失败", ""
+            image = self.img_to_jpeg(response.content)
+            if image is False:
+                rc= "服务暂不可用"
+                rt = ReplyType.TEXT
+                reply = Reply(rt, rc)
+                logger.error("[stability] upscale service exception")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
             else:
-                return False, "❌ 请求失败：服务异常", ""
-        
-        except Exception as e:
-            logger.exception(e)
-            return False, "❌ 请求失败", ""
+                rc = image
+                reply = Reply(rt, rc)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+    else:
+        rc= "服务暂不可用,可能是图片分辨率太高"
+        rt = ReplyType.TEXT
+        reply = Reply(rt, rc)
+        logger.error("[stability] service exception")
+        e_context["reply"] = reply
+        e_context.action = EventAction.BREAK_PASS
 
     def translate_to_english(self, text):
         logger.info(f"translate text = {text}")
