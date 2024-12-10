@@ -926,13 +926,13 @@ class stability(Plugin):
                 reply = Reply(rt, rc)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
-    else:
-        rc= "服务暂不可用,可能是图片分辨率太高"
-        rt = ReplyType.TEXT
-        reply = Reply(rt, rc)
-        logger.error("[stability] service exception")
-        e_context["reply"] = reply
-        e_context.action = EventAction.BREAK_PASS
+        else:
+            rc= "服务暂不可用,可能是图片分辨率太高"
+            rt = ReplyType.TEXT
+            reply = Reply(rt, rc)
+            logger.error("[stability] service exception")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
 
     def translate_to_english(self, text):
         logger.info(f"translate text = {text}")
