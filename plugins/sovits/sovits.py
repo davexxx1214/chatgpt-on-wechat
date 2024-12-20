@@ -57,93 +57,47 @@ class sovits(Plugin):
         context = e_context["context"]
         if context.type not in [ContextType.TEXT, ContextType.SHARING,ContextType.FILE,ContextType.IMAGE]:
             return
-        msg: ChatMessage = e_context["context"]["msg"]
-        user_id = msg.from_user_id
         content = context.content
-        isgroup = e_context["context"].get("isgroup", False)
-
-        # 将用户信息存储在params_cache中
-        if user_id not in self.params_cache:
-            self.params_cache[user_id] = {}
-            self.params_cache[user_id]['tts_quota'] = 0
-            logger.debug('Added new user to params_cache. user id = ' + user_id)
-
-        if user_id in self.params_cache and self.params_cache[user_id]['tts_quota'] > 0:
-            logger.info('符合转换条件，开始转换')
-            if len(content) > 200:
-                error_tip = f"❌转换文本不能超过200个字"
-                reply = Reply(type=ReplyType.TEXT, content= error_tip)
-                e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
-            else:
-                self.params_cache[user_id]['tts_quota'] = 0
-                self.call_service(content, user_id, e_context)
-                return
 
         if e_context['context'].type == ContextType.TEXT:
-            if content.startswith(self.tts_prefix):
-                # Call new function to handle search operation
-                pattern = self.tts_prefix + r"\s(.+)"
+            if content.startswith(self.azure_tts_prefix):
+                pattern = self.azure_tts_prefix + r"\s*([女男猴][12])?\s*(.+)?"
                 match = re.match(pattern, content)
-                model_str = "\n".join(self.model_list)
-                tip = f"💡欢迎使用变声服务，变声指令格式为:\n\n{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：\n{model_str}"
-                if match:
-                    tts_model = content[len(self.tts_prefix):].strip()
-                    if tts_model in self.model_list:
-                        real_model = self.model_mappings.get(tts_model)
-                        self.params_cache[user_id]['tts_model'] = real_model
-                        self.params_cache[user_id]['tts_quota'] = 1
-                        tip = f"💡{tts_model}已就位（语音素材来源网络,仅供学习研究,严禁用于商业及违法途径）"
-                    else:
-                        tip = f"❌错误的模型名称:{tts_model}，\n\n💡变声指令格式为：{self.tts_prefix}+空格+模型名称\n\n💬当前可用模型为：{model_str}"
-                    
-                else:
-                    self.params_cache[user_id]['tts_model'] = self.tts_model
-
+                voice_mappings = {
+                    "女1": "zh-CN-XiaochenMultilingualNeural",
+                    "女2": "zh-CN-XiaoyuMultilingualNeural",
+                    "男1": "zh-CN-YunfanMultilingualNeural",
+                    "男2": "zh-CN-YunyiMultilingualNeural",
+                    "猴哥": "zh_male_sunwukong_clone2"  # 新增猴哥映射
+                }
+                tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] 文字\n\n可选音色：女1、女2、男1、男2、猴哥\n例如：语音合成 猴哥 你好\n不指定音色则使用默认音色"
                 
-                reply = Reply(type=ReplyType.TEXT, content= tip)
-                e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
-
-            else:
-                if content.startswith(self.azure_tts_prefix):
-                    pattern = self.azure_tts_prefix + r"\s*([女男猴][12])?\s*(.+)?"
-                    match = re.match(pattern, content)
-                    voice_mappings = {
-                        "女1": "zh-CN-XiaochenMultilingualNeural",
-                        "女2": "zh-CN-XiaoyuMultilingualNeural",
-                        "男1": "zh-CN-YunfanMultilingualNeural",
-                        "男2": "zh-CN-YunyiMultilingualNeural",
-                        "猴哥": "zh_male_sunwukong_clone2"  # 新增猴哥映射
-                    }
-                    tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] 文字\n\n可选音色：女1、女2、男1、男2、猴哥\n例如：语音合成 猴哥 你好\n不指定音色则使用默认音色"
+                if match:
+                    voice_type = match.group(1)
+                    text = match.group(2)
                     
-                    if match:
-                        voice_type = match.group(1)
-                        text = match.group(2)
-                        
-                        if text:
-                            if voice_type == "猴哥":
-                                try:
-                                    # 调用火山引擎的语音合成
-                                    synthesize_speech("zh_male_sunwukong_clone2", text.strip())
-                                    reply = Reply(type=ReplyType.VOICE, content="output.wav")  # 假设输出文件为 output.wav
-                                except Exception as e:
-                                    reply = Reply(type=ReplyType.TEXT, content=f"❌语音合成失败: {str(e)}")
-                            else:
-                                azure_voice_service = AzureVoice()
-                                if voice_type:
-                                    azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings.get(voice_type, "")
-                                    reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
-                                else:
-                                    reply = azure_voice_service.textToVoice(text.strip())
+                    if text:
+                        if voice_type == "猴哥":
+                            try:
+                                # 调用火山引擎的语音合成
+                                synthesize_speech("zh_male_sunwukong_clone2", text.strip())
+                                reply = Reply(type=ReplyType.VOICE, content="output.wav")  # 假设输出文件为 output.wav
+                            except Exception as e:
+                                reply = Reply(type=ReplyType.TEXT, content=f"❌语音合成失败: {str(e)}")
                         else:
-                            reply = Reply(type=ReplyType.TEXT, content=tip)
+                            azure_voice_service = AzureVoice()
+                            if voice_type:
+                                azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings.get(voice_type, "")
+                                reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                            else:
+                                reply = azure_voice_service.textToVoice(text.strip())
                     else:
                         reply = Reply(type=ReplyType.TEXT, content=tip)
+                else:
+                    reply = Reply(type=ReplyType.TEXT, content=tip)
 
-                    e_context["reply"] = reply
-                    e_context.action = EventAction.BREAK_PASS
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
                     
 
     def call_service(self, content, user_id, e_context):
