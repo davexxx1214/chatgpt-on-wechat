@@ -61,8 +61,7 @@ class sovits(Plugin):
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.azure_tts_prefix):
-                pattern = self.azure_tts_prefix + r"\s*([女男猴][12])?\s*(.+)?"
-                match = re.match(pattern, content)
+                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12])|猴哥)?\s*(.+)?"                match = re.match(pattern, content)
                 voice_mappings = {
                     "女1": "zh-CN-XiaochenMultilingualNeural",
                     "女2": "zh-CN-XiaoyuMultilingualNeural",
