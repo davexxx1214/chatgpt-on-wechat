@@ -102,16 +102,10 @@ class sovits(Plugin):
                         else:
                             azure_voice_service = AzureVoice()
                             if voice_type:
-                                azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings.get(voice_type, "")
-                            
-                            # 生成唯一的文件名并指定目录
-                            timestamp = int(time.time())
-                            text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
-                            output_filename = f"reply-{timestamp}-{text_hash}.wav"
-                            output_dir = TmpDir().path()
-                            output_path = Path(output_dir) / output_filename
-                            
-                            reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False, output_path=str(output_path))
+                                azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings[voice_type]
+                                reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                            else:
+                                reply = azure_voice_service.textToVoice(text.strip())
                     else:
                         reply = Reply(type=ReplyType.TEXT, content=tip)
                 else:
