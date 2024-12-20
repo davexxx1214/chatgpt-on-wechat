@@ -1,10 +1,13 @@
 import json
 import requests
 from pathlib import Path
-import base64  # 新增导入
+import base64
 from .token_service import get_token
+import uuid
+from common.tmp_dir import TmpDir  # 新增导入
+import hashlib  # 新增导入
 
-def synthesize_speech(speaker: str, text: str):
+def synthesize_speech(speaker: str, text: str, output_path: str = None):
     # 获取token
     token = get_token()
 
@@ -65,13 +68,22 @@ def synthesize_speech(speaker: str, text: str):
             except Exception as decode_err:
                 raise Exception(f"数据解码失败: {decode_err}")
 
-        with open('output.wav', 'wb') as f:
+        # 如果未提供 output_path，生成唯一文件名并保存到 tmp 目录
+        if not output_path:
+            timestamp = int(time.time())
+            text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+            output_filename = f"reply-{timestamp}-{text_hash}.wav"
+            output_dir = TmpDir().path()
+            output_path = Path(output_dir) / output_filename
+
+        with open(output_path, 'wb') as f:
             f.write(data)
 
     except Exception as e:
         raise Exception(f"调用语音合成服务失败: {e}")
 
 if __name__ == "__main__":
+    import time
     speaker = "zh_male_sunwukong_clone2"  # 修改后的 speaker
     text = "欢迎使用文本转语音服务啊。"
     synthesize_speech(speaker, text)

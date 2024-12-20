@@ -12,6 +12,9 @@ from .ttsapi import _ttsApi
 import random
 from voice.azure.azure_voice import AzureVoice
 from .huoshan import synthesize_speech  # 新增导入
+from common.tmp_dir import TmpDir  # 确保导入 TmpDir
+import time  # 新增导入
+import hashlib  # 新增导入
 
 @plugins.register(
     name="sovits",
@@ -53,15 +56,18 @@ class sovits(Plugin):
         except Exception as e:
             # 初始化失败日志
             logger.warn(f"sovits init failed: {e}")
+
+            
     def on_handle_context(self, e_context: EventContext):
         context = e_context["context"]
-        if context.type not in [ContextType.TEXT, ContextType.SHARING,ContextType.FILE,ContextType.IMAGE]:
+        if context.type not in [ContextType.TEXT, ContextType.SHARING, ContextType.FILE, ContextType.IMAGE]:
             return
         content = context.content
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.azure_tts_prefix):
-                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12])|猴哥)?\s*(.+)?"                
+                # 修改后的正则表达式，支持“猴哥”
+                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12])|猴哥)?\s*(.+)?"
                 match = re.match(pattern, content)
                 voice_mappings = {
                     "女1": "zh-CN-XiaochenMultilingualNeural",
@@ -79,18 +85,32 @@ class sovits(Plugin):
                     if text:
                         if voice_type == "猴哥":
                             try:
+                                # 生成唯一的文件名并指定目录
+                                timestamp = int(time.time())
+                                text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+                                output_filename = f"reply-{timestamp}-{text_hash}.wav"
+                                output_dir = TmpDir().path()
+                                output_path = Path(output_dir) / output_filename
+                                
                                 # 调用火山引擎的语音合成
-                                synthesize_speech("zh_male_sunwukong_clone2", text.strip())
-                                reply = Reply(type=ReplyType.VOICE, content="output.wav")  # 假设输出文件为 output.wav
+                                synthesize_speech("zh_male_sunwukong_clone2", text.strip(), str(output_path))
+                                
+                                reply = Reply(type=ReplyType.VOICE, content=str(output_path))  # 使用唯一文件名
                             except Exception as e:
                                 reply = Reply(type=ReplyType.TEXT, content=f"❌语音合成失败: {str(e)}")
                         else:
                             azure_voice_service = AzureVoice()
                             if voice_type:
                                 azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings.get(voice_type, "")
-                                reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
-                            else:
-                                reply = azure_voice_service.textToVoice(text.strip())
+                            
+                            # 生成唯一的文件名并指定目录
+                            timestamp = int(time.time())
+                            text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+                            output_filename = f"reply-{timestamp}-{text_hash}.wav"
+                            output_dir = TmpDir().path()
+                            output_path = Path(output_dir) / output_filename
+                            
+                            reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False, output_path=str(output_path))
                     else:
                         reply = Reply(type=ReplyType.TEXT, content=tip)
                 else:
@@ -98,7 +118,6 @@ class sovits(Plugin):
 
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
-                    
 
     def call_service(self, content, user_id, e_context):
         self.handle_sovits(content, user_id, e_context)
