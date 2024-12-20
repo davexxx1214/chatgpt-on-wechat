@@ -11,7 +11,7 @@ import os
 from .ttsapi import _ttsApi
 import random
 from voice.azure.azure_voice import AzureVoice
-
+from .huoshan import synthesize_speech  # 新增导入
 
 @plugins.register(
     name="sovits",
@@ -107,27 +107,36 @@ class sovits(Plugin):
 
             else:
                 if content.startswith(self.azure_tts_prefix):
-                    pattern = self.azure_tts_prefix + r"\s*([女男][12])?\s*(.+)?"
+                    pattern = self.azure_tts_prefix + r"\s*([女男猴][12])?\s*(.+)?"
                     match = re.match(pattern, content)
                     voice_mappings = {
                         "女1": "zh-CN-XiaochenMultilingualNeural",
                         "女2": "zh-CN-XiaoyuMultilingualNeural",
                         "男1": "zh-CN-YunfanMultilingualNeural",
-                        "男2": "zh-CN-YunyiMultilingualNeural"
+                        "男2": "zh-CN-YunyiMultilingualNeural",
+                        "猴哥": "zh_male_sunwukong_clone2"  # 新增猴哥映射
                     }
-                    tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] 文字\n\n可选音色：女1、女2、男1、男2\n例如：语音合成 女1 你好\n不指定音色则使用默认音色"
+                    tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] 文字\n\n可选音色：女1、女2、男1、男2、猴哥\n例如：语音合成 猴哥 你好\n不指定音色则使用默认音色"
                     
                     if match:
                         voice_type = match.group(1)
                         text = match.group(2)
                         
                         if text:
-                            azure_voice_service = AzureVoice()
-                            if voice_type:
-                                azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings[voice_type]
-                                reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                            if voice_type == "猴哥":
+                                try:
+                                    # 调用火山引擎的语音合成
+                                    synthesize_speech("zh_male_sunwukong_clone2", text.strip())
+                                    reply = Reply(type=ReplyType.VOICE, content="output.wav")  # 假设输出文件为 output.wav
+                                except Exception as e:
+                                    reply = Reply(type=ReplyType.TEXT, content=f"❌语音合成失败: {str(e)}")
                             else:
-                                reply = azure_voice_service.textToVoice(text.strip())
+                                azure_voice_service = AzureVoice()
+                                if voice_type:
+                                    azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings.get(voice_type, "")
+                                    reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                                else:
+                                    reply = azure_voice_service.textToVoice(text.strip())
                         else:
                             reply = Reply(type=ReplyType.TEXT, content=tip)
                     else:

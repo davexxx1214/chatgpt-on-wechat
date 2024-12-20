@@ -73,5 +73,5 @@ def synthesize_speech(speaker: str, text: str):
 
 if __name__ == "__main__":
     speaker = "zh_male_sunwukong_clone2"  # 修改后的 speaker
-    text = "欢迎使用文本转语音服务。"
+    text = "欢迎使用文本转语音服务啊。"
     synthesize_speech(speaker, text)

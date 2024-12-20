@@ -1,11 +1,12 @@
 import datetime
 import hashlib
 import hmac
+import json
+import os
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
-import json
-from pathlib import Path
 
 # 服务相关参数
 Service = "sami"  # 设置为 'sami' 服务
@@ -21,6 +22,10 @@ with open(config_path, 'r', encoding='utf-8') as f:
 
 AK = config.get('huoshan_access_key')  # Access Key ID
 SK = config.get('huoshan_secret_key')  # Secret Access Key
+APPKEY = config.get('huoshan_app_key')  # App Key
+
+# Token 缓存文件路径
+TOKEN_CACHE_PATH = Path(__file__).parent / 'token_cache.json'
 
 def norm_query(params):
     query = ""
@@ -45,7 +50,31 @@ def get_signature_key(key, date_stamp, region, service):
     k_signing = hmac_sha256(k_service, "request")
     return k_signing
 
+def load_cached_token():
+    if TOKEN_CACHE_PATH.exists():
+        with open(TOKEN_CACHE_PATH, 'r', encoding='utf-8') as f:
+            cache = json.load(f)
+            expires_at = cache.get('expires_at', 0)
+            current_time = int(datetime.datetime.utcnow().timestamp())
+            if current_time < expires_at:
+                return cache.get('token')
+    return None
+
+def save_token(token, expires_at):
+    cache = {
+        'token': token,
+        'expires_at': expires_at
+    }
+    with open(TOKEN_CACHE_PATH, 'w', encoding='utf-8') as f:
+        json.dump(cache, f)
+
 def get_token():
+    # 首先尝试从缓存中加载 Token
+    cached_token = load_cached_token()
+    if cached_token:
+        print("使用缓存中的 Token。")
+        return cached_token
+
     method = 'POST'
     service = Service
     host = Host
@@ -55,8 +84,7 @@ def get_token():
     action = 'GetToken'
     version = Version
     token_version = "volc-auth-v1"
-    appkey = config.get('huoshan_app_key')
-    expiration = 36000  # 可根据需要调整
+    expiration = 86400  # 设置为1天（86400秒）
 
     # 请求参数
     query_params = {
@@ -67,7 +95,7 @@ def get_token():
     # 请求体
     body_params = {
         "token_version": token_version,
-        "appkey": appkey,
+        "appkey": APPKEY,
         "expiration": expiration
     }
     body = json.dumps(body_params)
@@ -134,7 +162,13 @@ def get_token():
         res = response.json()
         if 'token' not in res:
             raise Exception(res.get('msg', '获取token失败'))
-        return res['token']
+        token = res['token']
+        expires_at = res.get('expires_at', 0)
+        if expires_at == 0:
+            # 如果响应中没有 expires_at，则手动计算
+            expires_at = int(datetime.datetime.utcnow().timestamp()) + expiration
+        save_token(token, expires_at)
+        return token
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
         try:
