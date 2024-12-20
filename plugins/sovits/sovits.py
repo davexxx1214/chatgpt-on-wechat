@@ -15,6 +15,7 @@ from .huoshan import synthesize_speech  # 新增导入
 from common.tmp_dir import TmpDir  # 确保导入 TmpDir
 import time  # 新增导入
 import hashlib  # 新增导入
+from pathlib import Path  # 新增导入
 
 @plugins.register(
     name="sovits",
