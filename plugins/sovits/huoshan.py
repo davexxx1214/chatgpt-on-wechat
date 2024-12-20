@@ -2,7 +2,7 @@ import json
 import requests
 from pathlib import Path
 import base64  # 新增导入
-from token_service import get_token
+from .token_service import get_token
 
 def synthesize_speech(speaker: str, text: str):
     # 获取token
