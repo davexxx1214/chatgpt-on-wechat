@@ -67,7 +67,7 @@ class sovits(Plugin):
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.azure_tts_prefix):
-                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12]))?\s*(.+)?"
+                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12]))?\s*([\d.]+x)?\s*(.+)?"
                 match = re.match(pattern, content)
                 voice_mappings = {
                     "女1": "zh-CN-XiaochenMultilingualNeural",
@@ -75,26 +75,30 @@ class sovits(Plugin):
                     "男1": "zh-CN-YunfanMultilingualNeural",
                     "男2": "zh-CN-YunyiMultilingualNeural"
                 }
-                tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] 文字\n\n可选音色：女1、女2、男1、男2\n例如：语音合成 男2 你好\n不指定音色则使用默认音色"
+                tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] [速度] 文字\n\n可选音色：女1、女2、男1、男2\n速度范围：0.5x-2.0x，例如1.5x\n例如：语音合成 男2 1.5x 你好\n不指定音色和速度则使用默认设置"
                 
                 if match:
                     voice_type = match.group(1)
-                    text = match.group(2)
+                    speed = match.group(2)
+                    text = match.group(3)
                     
                     if text:
                         azure_voice_service = AzureVoice()
                         if voice_type:
                             azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings[voice_type]
-                            reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                        
+                        # 无论是否指定速度，都使用SSML
+                        speed_value = float(speed.rstrip('x')) if speed else 1.0
+                        if 0.5 <= speed_value <= 2.0:
+                            ssml_text = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN"><prosody rate="{int((speed_value-1)*100):+d}%">{text.strip()}</prosody></speak>'
+                            reply = azure_voice_service.textToVoice(ssml_text, use_ssml=True, use_auto_detect=False)
                         else:
-                            reply = azure_voice_service.textToVoice(text.strip())
+                            reply = Reply(type=ReplyType.TEXT, content="速度范围应在0.5x-2.0x之间")
                     else:
                         reply = Reply(type=ReplyType.TEXT, content=tip)
-                else:
-                    reply = Reply(type=ReplyType.TEXT, content=tip)
-
-                e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
+                        
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
 
     def call_service(self, content, user_id, e_context):
         self.handle_sovits(content, user_id, e_context)
