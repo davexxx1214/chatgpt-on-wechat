@@ -68,6 +68,60 @@ class AzureVoice(Voice):
             logger.error("[Azure] voiceToText error, result={}, errordetails={}".format(result, cancel_details))
             reply = Reply(ReplyType.ERROR, "抱歉，语音识别失败")
         return reply
+    
+    def _generate_ssml(self, text, rate="1.0"):
+        """生成SSML标记语言
+        Args:
+            text (str): 要转换的文本
+            rate (str): 语速 (e.g., "0.8", "1.0", "1.2")
+        """
+        voice_name = self.speech_config.speech_synthesis_voice_name
+        ssml = (
+            f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">'
+            f'<voice name="{voice_name}">'
+            f'<prosody rate="{rate}">{text}</prosody>'
+            f'</voice>'
+            f'</speak>'
+        )
+        return ssml
+
+    def textToVoiceWithSSML(self, text, use_auto_detect=None, rate="1.0"):
+        """使用SSML将文本转换为语音，支持设置语速
+        Args:
+            text (str): 要转换的文本
+            use_auto_detect (bool, optional): 是否自动检测语言
+            rate (str, optional): 语速，默认"1.0"，范围一般在0.5到2.0之间
+        Returns:
+            Reply: 语音回复对象
+        """
+        # If use_auto_detect is provided, use it; otherwise use the config value
+        should_auto_detect = self.config.get("auto_detect") if use_auto_detect is None else use_auto_detect
+        
+        if should_auto_detect:
+            lang = classify(text)[0]
+            key = "speech_synthesis_" + lang
+            if key in self.config:
+                logger.info("[Azure] textToVoice auto detect language={}, voice={}".format(lang, self.config[key]))
+                self.speech_config.speech_synthesis_voice_name = self.config[key]
+            else:
+                self.speech_config.speech_synthesis_voice_name = self.config["speech_synthesis_voice_name"]
+
+        fileName = TmpDir().path() + "reply-" + str(int(time.time())) + "-" + str(hash(text) & 0x7FFFFFFF) + ".wav"
+        audio_config = speechsdk.AudioConfig(filename=fileName)
+        speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.speech_config, audio_config=audio_config)
+        
+        # 使用SSML来控制语速
+        ssml = self._generate_ssml(text, rate)
+        result = speech_synthesizer.speak_ssml(ssml)
+        
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            logger.info("[Azure] textToVoice text={} voice file name={}".format(text, fileName))
+            reply = Reply(ReplyType.VOICE, fileName)
+        else:
+            cancel_details = result.cancellation_details
+            logger.error("[Azure] textToVoice error, result={}, errordetails={}".format(result, cancel_details.error_details))
+            reply = Reply(ReplyType.ERROR, "抱歉，语音合成失败")
+        return reply
 
     def textToVoice(self, text, use_auto_detect=None):
         # If use_auto_detect is provided, use it; otherwise use the config value

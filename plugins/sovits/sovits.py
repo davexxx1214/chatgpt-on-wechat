@@ -67,7 +67,8 @@ class sovits(Plugin):
 
         if e_context['context'].type == ContextType.TEXT:
             if content.startswith(self.azure_tts_prefix):
-                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12]))?\s*(.+)?"
+                # 修改正则表达式以支持语速参数
+                pattern = self.azure_tts_prefix + r"\s*((?:女[12])|(?:男[12]))?\s*([\d.]+)?\s*(.+)?"
                 match = re.match(pattern, content)
                 voice_mappings = {
                     "女1": "zh-CN-XiaochenMultilingualNeural",
@@ -75,19 +76,32 @@ class sovits(Plugin):
                     "男1": "zh-CN-YunfanMultilingualNeural",
                     "男2": "zh-CN-YunyiMultilingualNeural"
                 }
-                tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] 文字\n\n可选音色：女1、女2、男1、男2\n例如：语音合成 男2 你好\n不指定音色则使用默认音色"
+                tip = f"💡欢迎使用语音合成服务(可商用)，语音合成指令格式为:\n\n{self.azure_tts_prefix} [音色] [语速] 文字\n\n可选音色：女1、女2、男1、男2\n语速范围：0.5-2.0，默认1.0\n例如：\n语音合成 男2 你好\n语音合成 男2 1.5 你好\n不指定音色和语速则使用默认值"
                 
                 if match:
                     voice_type = match.group(1)
-                    text = match.group(2)
+                    rate = match.group(2)
+                    text = match.group(3)
                     
                     if text:
                         azure_voice_service = AzureVoice()
                         if voice_type:
                             azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings[voice_type]
-                            reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                        
+                        # 如果指定了语速，使用SSML方法；否则使用普通方法
+                        if rate:
+                            # 确保语速在合理范围内
+                            rate = float(rate)
+                            if rate < 0.5:
+                                rate = 0.5
+                            elif rate > 2.0:
+                                rate = 2.0
+                            reply = azure_voice_service.textToVoiceWithSSML(text.strip(), use_auto_detect=False, rate=str(rate))
                         else:
-                            reply = azure_voice_service.textToVoice(text.strip())
+                            if voice_type:
+                                reply = azure_voice_service.textToVoice(text.strip(), use_auto_detect=False)
+                            else:
+                                reply = azure_voice_service.textToVoice(text.strip())
                     else:
                         reply = Reply(type=ReplyType.TEXT, content=tip)
                 else:
