@@ -87,16 +87,16 @@ class sovits(Plugin):
                         if voice_type:
                             azure_voice_service.speech_config.speech_synthesis_voice_name = voice_mappings[voice_type]
                         
-                        # 无论是否指定速度，都使用SSML
+                        # 处理速度并构建SSML
                         speed_value = float(speed.rstrip('x')) if speed else 1.0
                         if 0.5 <= speed_value <= 2.0:
                             ssml_text = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN"><prosody rate="{int((speed_value-1)*100):+d}%">{text.strip()}</prosody></speak>'
-                            reply = azure_voice_service.textToVoice(ssml_text, use_ssml=True, use_auto_detect=False)
+                            reply = azure_voice_service.textToVoice(ssml_text)
                         else:
                             reply = Reply(type=ReplyType.TEXT, content="速度范围应在0.5x-2.0x之间")
                     else:
                         reply = Reply(type=ReplyType.TEXT, content=tip)
-                        
+
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
 
