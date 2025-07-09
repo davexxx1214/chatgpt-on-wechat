@@ -46,6 +46,30 @@ class FeishuMessage(ChatMessage):
                 else:
                     logger.info(f"[FeiShu] Failed to download file, key={file_key}, res={response.text}")
             self._prepare_fn = _download_file
+        elif msg_type == "image":
+            self.ctype = ContextType.IMAGE
+            content = json.loads(msg.get('content'))
+            image_key = content.get("image_key")
+            
+            # 生成临时文件路径，使用.jpg作为默认扩展名
+            self.content = TmpDir().path() + image_key + ".jpg"
+            
+            def _download_image():
+                # 下载图片文件
+                url = f"https://open.feishu.cn/open-apis/im/v1/messages/{self.msg_id}/resources/{image_key}"
+                headers = {
+                    "Authorization": "Bearer " + access_token,
+                }
+                params = {
+                    "type": "image"
+                }
+                response = requests.get(url=url, headers=headers, params=params)
+                if response.status_code == 200:
+                    with open(self.content, "wb") as f:
+                        f.write(response.content)
+                else:
+                    logger.info(f"[FeiShu] Failed to download image, key={image_key}, res={response.text}")
+            self._prepare_fn = _download_image
         else:
             raise NotImplementedError("Unsupported message type: Type:{} ".format(msg_type))
 
