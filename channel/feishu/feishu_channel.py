@@ -62,17 +62,21 @@ class FeiShuChanel(ChatChannel):
             "Content-Type": "application/json",
         }
         msg_type = "text"
-        logger.info(f"[FeiShu] start send reply message, type={context.type}, content={reply.content}")
         reply_content = reply.content
         content_key = "text"
         if reply.type == ReplyType.IMAGE_URL:
             # 图片上传
+            logger.info(f"[FeiShu] start send image message, type={context.type}")
             reply_content = self._upload_image_url(reply.content, access_token)
             if not reply_content:
                 logger.warning("[FeiShu] upload file failed")
                 return
             msg_type = "image"
             content_key = "image_key"
+        else:
+            # 文本消息，截断内容避免日志过长
+            content_preview = reply.content[:100] + "..." if len(reply.content) > 100 else reply.content
+            logger.info(f"[FeiShu] start send text message, type={context.type}, content={content_preview}")
         if is_group:
             # 群聊中直接回复
             url = f"https://open.feishu.cn/open-apis/im/v1/messages/{msg.msg_id}/reply"
@@ -120,14 +124,14 @@ class FeiShuChanel(ChatChannel):
 
 
     def _upload_image_url(self, img_url, access_token):
-        logger.debug(f"[FeiShu] start process image, img_url={img_url[:100]}...")
-        
         # 检查是否是base64 data URL
         if img_url.startswith("data:image/"):
             # 处理base64格式的图片
+            logger.debug("[FeiShu] start process base64 image")
             return self._upload_base64_image(img_url, access_token)
         else:
             # 处理普通URL图片
+            logger.debug(f"[FeiShu] start download image from URL")
             response = requests.get(img_url)
             suffix = utils.get_path_suffix(img_url)
             temp_name = str(uuid.uuid4()) + "." + suffix
