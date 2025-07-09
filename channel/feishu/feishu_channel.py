@@ -211,6 +211,7 @@ class FeishuController:
                 context = self._compose_context(
                     feishu_msg.ctype,
                     feishu_msg.content,
+                    channel=channel,
                     isgroup=is_group,
                     msg=feishu_msg,
                     receive_id_type=receive_id_type,
@@ -231,6 +232,9 @@ class FeishuController:
         if "origin_ctype" not in context:
             context["origin_ctype"] = ctype
 
+        # 获取channel实例
+        channel = kwargs.get("channel")
+        
         cmsg = context["msg"]
         context["session_id"] = cmsg.from_user_id
         context["receiver"] = cmsg.other_user_id
@@ -254,8 +258,9 @@ class FeishuController:
                 tip_context["session_id"] = cmsg.from_user_id
                 tip_context["receiver"] = cmsg.other_user_id
                 
-                # 立即发送提示消息
-                self.send(tip_reply, tip_context)
+                # 使用channel实例发送提示消息
+                if channel:
+                    channel.send(tip_reply, tip_context)
                 
             else:
                 context.type = ContextType.TEXT
