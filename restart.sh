@@ -34,11 +34,8 @@ else
     echo "未找到运行中的 app.py 进程"
 fi
 
-# 清理旧的 nohup.out 文件（可选）
-if [ -f nohup.out ]; then
-    echo "备份旧的日志文件..."
-    mv nohup.out nohup.out.$(date +%Y%m%d_%H%M%S)
-fi
+echo "清理旧的日志文件..."
+rm nohup.out
 
 echo "正在启动 app.py..."
 
