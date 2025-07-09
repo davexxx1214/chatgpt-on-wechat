@@ -55,11 +55,6 @@ class ChatGPTBot(Bot, OpenAIImage):
         # acquire reply content
         if context.type == ContextType.TEXT:
             logger.info("[CHATGPT] query={}".format(query))
-            if conf().get("open_ai_api_base"):
-                openai.api_base = conf().get("open_ai_api_base") 
-                
-            if conf().get("open_ai_api_key"):
-                openai.api_key = conf().get("open_ai_api_key")
 
             session_id = context["session_id"]
             reply = None
@@ -134,8 +129,8 @@ class ChatGPTBot(Bot, OpenAIImage):
             if args is None:
                 args = self.args
             response = openai.ChatCompletion.create(api_key=api_key, messages=session.messages, **args)
-            logger.info("[CHATGPT] response={}".format(response))
-            # logger.info("[ChatGPT] reply={}, total_tokens={}".format(response.choices[0]['message']['content'], response["usage"]["total_tokens"]))
+            # logger.debug("[CHATGPT] response={}".format(response))
+            logger.info("[ChatGPT] reply={}, total_tokens={}".format(response.choices[0]['message']['content'], response["usage"]["total_tokens"]))
             return {
                 "total_tokens": response["usage"]["total_tokens"],
                 "completion_tokens": response["usage"]["completion_tokens"],

@@ -99,7 +99,7 @@ class Role(Plugin):
         if e_context["context"].type != ContextType.TEXT:
             return
         btype = Bridge().get_bot_type("chat")
-        if btype not in [const.OPEN_AI, const.CHATGPT, const.CHATGPTONAZURE, const.QWEN_DASHSCOPE, const.XUNFEI, const.BAIDU, const.ZHIPU_AI, const.MOONSHOT, const.MiniMax, const.LINKAI]:
+        if btype not in [const.OPEN_AI, const.CHATGPT, const.CHATGPTONAZURE, const.QWEN_DASHSCOPE, const.XUNFEI, const.BAIDU, const.ZHIPU_AI, const.MOONSHOT, const.MiniMax, const.LINKAI,const.MODELSCOPE]:
             logger.debug(f'不支持的bot: {btype}')
             return
         bot = Bridge().get_bot("chat")
@@ -183,6 +183,7 @@ class Role(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
         else:
+            e_context["context"]["generate_breaked_by"] = EventAction.BREAK
             prompt = self.roleplays[sessionid].action(content)
             e_context["context"].type = ContextType.TEXT
             e_context["context"].content = prompt
