@@ -120,16 +120,61 @@ class FeiShuChanel(ChatChannel):
 
 
     def _upload_image_url(self, img_url, access_token):
-        logger.debug(f"[WX] start download image, img_url={img_url}")
-        response = requests.get(img_url)
-        suffix = utils.get_path_suffix(img_url)
-        temp_name = str(uuid.uuid4()) + "." + suffix
-        if response.status_code == 200:
-            # 将图片内容保存为临时文件
-            with open(temp_name, "wb") as file:
-                file.write(response.content)
+        logger.debug(f"[FeiShu] start process image, img_url={img_url[:100]}...")
+        
+        # 检查是否是base64 data URL
+        if img_url.startswith("data:image/"):
+            # 处理base64格式的图片
+            return self._upload_base64_image(img_url, access_token)
+        else:
+            # 处理普通URL图片
+            response = requests.get(img_url)
+            suffix = utils.get_path_suffix(img_url)
+            temp_name = str(uuid.uuid4()) + "." + suffix
+            if response.status_code == 200:
+                # 将图片内容保存为临时文件
+                with open(temp_name, "wb") as file:
+                    file.write(response.content)
 
-        # upload
+                # upload
+                return self._upload_file_to_feishu(temp_name, access_token)
+            else:
+                logger.error(f"[FeiShu] download image failed, status_code={response.status_code}")
+                return None
+
+    def _upload_base64_image(self, data_url, access_token):
+        """处理base64格式的图片数据"""
+        try:
+            import base64
+            # 解析data URL: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+            header, image_data = data_url.split(',', 1)
+            # 获取图片格式
+            if 'png' in header:
+                suffix = 'png'
+            elif 'jpeg' in header or 'jpg' in header:
+                suffix = 'jpg'
+            else:
+                suffix = 'png'  # 默认为png
+            
+            # 解码base64数据
+            image_bytes = base64.b64decode(image_data)
+            
+            # 创建临时文件
+            temp_name = str(uuid.uuid4()) + "." + suffix
+            with open(temp_name, "wb") as file:
+                file.write(image_bytes)
+            
+            logger.info(f"[FeiShu] base64 image saved to temp file: {temp_name}")
+            
+            # 上传文件
+            return self._upload_file_to_feishu(temp_name, access_token)
+            
+        except Exception as e:
+            logger.error(f"[FeiShu] process base64 image failed: {e}")
+            return None
+
+    def _upload_file_to_feishu(self, temp_file_path, access_token):
+        """上传文件到飞书"""
         upload_url = "https://open.feishu.cn/open-apis/im/v1/images"
         data = {
             'image_type': 'message'
@@ -137,11 +182,31 @@ class FeiShuChanel(ChatChannel):
         headers = {
             'Authorization': f'Bearer {access_token}',
         }
-        with open(temp_name, "rb") as file:
-            upload_response = requests.post(upload_url, files={"image": file}, data=data, headers=headers)
-            logger.info(f"[FeiShu] upload file, res={upload_response.content}")
-            os.remove(temp_name)
-            return upload_response.json().get("data").get("image_key")
+        
+        try:
+            with open(temp_file_path, "rb") as file:
+                upload_response = requests.post(upload_url, files={"image": file}, data=data, headers=headers)
+                logger.info(f"[FeiShu] upload file response: {upload_response.status_code}")
+                
+                # 删除临时文件
+                os.remove(temp_file_path)
+                
+                if upload_response.status_code == 200:
+                    result = upload_response.json()
+                    if result.get("code") == 0:
+                        return result.get("data", {}).get("image_key")
+                    else:
+                        logger.error(f"[FeiShu] upload failed: {result}")
+                        return None
+                else:
+                    logger.error(f"[FeiShu] upload request failed: {upload_response.text}")
+                    return None
+        except Exception as e:
+            logger.error(f"[FeiShu] upload file failed: {e}")
+            # 确保删除临时文件
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            return None
 
 
 
