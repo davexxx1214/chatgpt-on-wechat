@@ -5,6 +5,7 @@ from bridge.reply import Reply, ReplyType
 from bridge.context import ContextType
 from channel.chat_message import ChatMessage
 from plugins import *
+from plugins.event import EventAction
 from common.log import logger
 from common.expired_dict import ExpiredDict
 from common.tmp_dir import TmpDir
@@ -371,6 +372,9 @@ class stability(Plugin):
 
         # 处理多图编辑结束指令
         if content.startswith(self.end_prefix):
+            # 立即设置事件阻断，防止指令继续传播
+            e_context.action = EventAction.BREAK_PASS
+            
             key = self.get_waiting_key(msg)
             waiting_blend_info = self.waiting_blend.get(key)
             if waiting_blend_info:
@@ -384,8 +388,6 @@ class stability(Plugin):
                     tip = f"✨ 多图编辑模式\n✏ 您需要发送至少2张图片才能开始多图编辑。当前已发送 {len(images)} 张。请继续发送图片或重新开始。"
                     reply = Reply(type=ReplyType.TEXT, content=tip)
                     e_context["reply"] = reply
-                    e_context.action = EventAction.BREAK_PASS
-            e_context.action = EventAction.BREAK_PASS
             return
 
         # 处理FAL图片编辑指令 (/p)
@@ -453,11 +455,13 @@ class stability(Plugin):
 
         # 处理文生视频指令
         if content.startswith(self.fal_text_prefix):
+            # 立即设置事件阻断，防止指令继续传播
+            e_context.action = EventAction.BREAK_PASS
+            
             if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
                 tip = "抱歉，文生视频服务当前不可用，请联系管理员检查配置。"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
                 return
 
             user_prompt = content[len(self.fal_text_prefix):].strip()
@@ -465,7 +469,6 @@ class stability(Plugin):
                 tip = f"💡欢迎使用kling2.1文生视频，指令格式为:\n\n{self.fal_text_prefix}+ 空格 + 视频描述\n例如：{self.fal_text_prefix} 一只猫在草地上奔跑"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
                 return
             
             tip = "💡已开启kling2.1文生视频模式（kling2.1 text-to-video），将根据您的描述生成视频。"
@@ -473,16 +476,17 @@ class stability(Plugin):
             notice = "您的文生视频的请求已经收到，请稍候..."
             self._send_reply(notice, e_context)
             self._handle_text2video_async(user_prompt, e_context)
-            e_context.action = EventAction.BREAK_PASS
             return
 
         # 处理veo3视频生成指令
         if content.startswith(self.veo3_prefix):
+            # 立即设置事件阻断，防止指令继续传播
+            e_context.action = EventAction.BREAK_PASS
+            
             if not self.veo3_api_key or not self.veo3_api_base:
                 tip = "抱歉，veo3视频生成服务当前不可用，请联系管理员检查veo3 API配置。"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
                 return
 
             user_prompt = content[len(self.veo3_prefix):].strip()
@@ -490,13 +494,11 @@ class stability(Plugin):
                 tip = f"💡欢迎使用veo3视频生成，指令格式为:\n\n{self.veo3_prefix} + 空格 + 视频描述（支持中文）\n例如：{self.veo3_prefix} 一个宇航员在月球上跳舞"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
                 return
             
             tip = f"💡已开启veo3视频生成模式，将根据您的描述生成视频。\n当前的提示词为：\n{user_prompt or '无'}"
             self._send_reply(tip, e_context)
             self._handle_veo3_video_async(user_prompt, e_context)
-            e_context.action = EventAction.BREAK_PASS
             return
 
     def _handle_image_message(self, e_context: EventContext, user_id: str):
@@ -1405,15 +1407,9 @@ class stability(Plugin):
     def _send_video_with_custom_logic(self, video_path, cover_path, e_context):
         """自定义视频发送逻辑"""
         try:
-            # 读取视频和封面文件
+            # 读取视频文件
             with open(video_path, "rb") as f:
                 video_data = f.read()
-            with open(cover_path, "rb") as f:
-                image_data = f.read()
-            
-            # 转换为base64
-            video_base64 = base64.b64encode(video_data).decode()
-            image_base64 = base64.b64encode(image_data).decode()
             
             # 获取视频时长，默认5秒
             duration_seconds = 5
@@ -1431,10 +1427,12 @@ class stability(Plugin):
             
             logger.info(f"视频时长: {duration_seconds}秒")
             
-            # 生成视频Reply
-            # 这里需要根据实际的微信API来发送视频
-            # 暂时先发送文本提示
-            reply = Reply(ReplyType.TEXT, f"视频已生成完成！\n时长: {duration_seconds}秒\n大小: {len(video_data)} 字节")
+            # 创建视频BytesIO对象用于发送
+            video_stream = io.BytesIO(video_data)
+            video_stream.seek(0)
+            
+            # 发送视频文件
+            reply = Reply(ReplyType.VIDEO, video_stream)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
             
