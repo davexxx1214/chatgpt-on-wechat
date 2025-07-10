@@ -1447,13 +1447,13 @@ class stability(Plugin):
             
             logger.info(f"视频时长: {duration_seconds}秒")
             
-            # 发送视频文件 (现在所有平台包括飞书都支持视频发送)
+            # 异步任务中直接发送视频，而不是设置e_context
             video_stream = io.BytesIO(video_data)
             video_stream.seek(0)
             reply = Reply(ReplyType.VIDEO, video_stream)
             
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
+            # 直接发送视频消息
+            self._send_reply(reply, e_context)
             
         except Exception as e:
             logger.error(f"自定义视频发送失败: {e}")
