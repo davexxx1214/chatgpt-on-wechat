@@ -73,6 +73,30 @@ class FeiShuChanel(ChatChannel):
                 return
             msg_type = "image"
             content_key = "image_key"
+        elif reply.type == ReplyType.VIDEO:
+            # 飞书视频发送
+            logger.info(f"[FeiShu] start send video message, type={context.type}")
+            if hasattr(reply.content, 'read'):
+                # BytesIO 对象，读取视频数据
+                video_data = reply.content.read()
+                reply.content.seek(0)  # 重置指针
+            else:
+                # 文件路径
+                with open(reply.content, 'rb') as f:
+                    video_data = f.read()
+            
+            reply_content = self._upload_video_to_feishu(video_data, access_token)
+            if not reply_content:
+                logger.warning("[FeiShu] upload video failed")
+                return
+            msg_type = "media"
+            content_key = "file_key"
+        elif reply.type == ReplyType.VIDEO_URL:
+            # 飞书不支持直接发送视频链接，发送提示文本
+            logger.info(f"[FeiShu] send video URL as text message, type={context.type}")
+            reply_content = f"🎬 视频已生成完成！\n点击下方链接查看：\n{reply.content}"
+            msg_type = "text"
+            content_key = "text"
         else:
             # 文本消息，截断内容避免日志过长
             content_preview = reply.content[:100] + "..." if len(reply.content) > 100 else reply.content
@@ -210,6 +234,50 @@ class FeiShuChanel(ChatChannel):
             # 确保删除临时文件
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
+            return None
+
+    def _upload_video_to_feishu(self, video_data, access_token):
+        """上传视频到飞书"""
+        upload_url = "https://open.feishu.cn/open-apis/im/v1/files"
+        data = {
+            'file_type': 'mp4'
+        }
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+        }
+        
+        temp_name = None
+        try:
+            # 创建临时文件
+            temp_name = str(uuid.uuid4()) + ".mp4"
+            with open(temp_name, "wb") as file:
+                file.write(video_data)
+            
+            with open(temp_name, "rb") as file:
+                files = {"file": file}
+                upload_response = requests.post(upload_url, files=files, data=data, headers=headers)
+                logger.info(f"[FeiShu] upload video response: {upload_response.status_code}")
+                
+                # 删除临时文件
+                os.remove(temp_name)
+                
+                if upload_response.status_code == 200:
+                    result = upload_response.json()
+                    if result.get("code") == 0:
+                        file_key = result.get("data", {}).get("file_key")
+                        logger.info(f"[FeiShu] video upload success, file_key: {file_key}")
+                        return file_key
+                    else:
+                        logger.error(f"[FeiShu] upload video failed: {result}")
+                        return None
+                else:
+                    logger.error(f"[FeiShu] upload video request failed: {upload_response.text}")
+                    return None
+        except Exception as e:
+            logger.error(f"[FeiShu] upload video failed: {e}")
+            # 确保删除临时文件
+            if temp_name and os.path.exists(temp_name):
+                os.remove(temp_name)
             return None
 
 

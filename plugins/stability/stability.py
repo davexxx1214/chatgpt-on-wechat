@@ -1427,12 +1427,11 @@ class stability(Plugin):
             
             logger.info(f"视频时长: {duration_seconds}秒")
             
-            # 创建视频BytesIO对象用于发送
+            # 发送视频文件 (现在所有平台包括飞书都支持视频发送)
             video_stream = io.BytesIO(video_data)
             video_stream.seek(0)
-            
-            # 发送视频文件
             reply = Reply(ReplyType.VIDEO, video_stream)
+            
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
             
