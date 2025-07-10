@@ -79,7 +79,9 @@ class FeishuMessage(ChatMessage):
             # 群聊
             self.other_user_id = msg.get("chat_id")
             self.actual_user_id = self.from_user_id
-            self.content = self.content.replace("@_user_1", "").strip()
+            # 只对文本消息进行@符号处理
+            if msg_type == "text":
+                self.content = self.content.replace("@_user_1", "").strip()
             self.actual_user_nickname = ""
         else:
             # 私聊

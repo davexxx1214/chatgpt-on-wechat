@@ -229,6 +229,11 @@ class FeishuController:
 
             request = json.loads(web.data().decode("utf-8"))
             logger.debug(f"[FeiShu] receive request: {request}")
+            
+            # 添加消息类型调试日志
+            if request.get("event") and request.get("event").get("message"):
+                msg_type = request.get("event").get("message").get("message_type")
+                logger.info(f"[FeiShu] received message type: {msg_type}")
 
             # 1.事件订阅回调验证
             if request.get("type") == URL_VERIFICATION:
