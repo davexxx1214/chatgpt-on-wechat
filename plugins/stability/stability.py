@@ -113,6 +113,10 @@ class stability(Plugin):
             self.fal_kling_text_model = self.config.get("fal_kling_text_model", "kling-video/v2/master/text-to-video")
             self.veo3_retry_times = self.config.get("veo3_retry_times", 30)
             
+            # veo3专用配置
+            self.veo3_api_key = self.config.get("veo3_api_key", "")
+            self.veo3_api_base = self.config.get("veo3_api_base", "")
+            
             # 状态管理
             self.params_cache = ExpiredDict(500)
             self.waiting_edit_image = {}
@@ -472,8 +476,8 @@ class stability(Plugin):
 
         # 处理veo3视频生成指令
         if content.startswith(self.veo3_prefix):
-            if not self.openai_image_api_key:
-                tip = "抱歉，veo3视频生成服务当前不可用，请联系管理员检查OpenAI配置。"
+            if not self.veo3_api_key or not self.veo3_api_base:
+                tip = "抱歉，veo3视频生成服务当前不可用，请联系管理员检查veo3 API配置。"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -1178,8 +1182,8 @@ class stability(Plugin):
         logger.info(f"[veo3] 开始处理veo3视频任务，提示词: {prompt}")
         
         max_retries = self.veo3_retry_times
-        api_key = self.openai_image_api_key
-        api_base = self.openai_image_api_base or "https://api.openai.com/v1"
+        api_key = self.veo3_api_key
+        api_base = self.veo3_api_base
         
         for retry in range(max_retries):
             try:
