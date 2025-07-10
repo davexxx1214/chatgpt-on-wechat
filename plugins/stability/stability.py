@@ -483,7 +483,12 @@ class stability(Plugin):
             # 立即设置事件阻断，防止指令继续传播
             e_context.action = EventAction.BREAK_PASS
             
-            test_video_path = "/tmp/test.mp4"
+            # 使用插件目录下的tmp/test.mp4
+            tmp_dir = os.path.join(os.path.dirname(__file__), 'tmp')
+            test_video_path = os.path.join(tmp_dir, 'test.mp4')
+            
+            logger.info(f"[测试视频] 检查测试视频文件路径: {test_video_path}")
+            
             if os.path.exists(test_video_path):
                 tip = "🎬 开始发送测试视频..."
                 self._send_reply(tip, e_context)
