@@ -108,6 +108,7 @@ class FeiShuChanel(ChatChannel):
                 "msg_type": msg_type,
                 "content": json.dumps({content_key: reply_content})
             }
+            logger.info(f"[FeiShu] 群聊发送请求 - URL: {url}, msg_type: {msg_type}, content_key: {content_key}, reply_content: {reply_content}")
             res = requests.post(url=url, headers=headers, json=data, timeout=(5, 10))
         else:
             url = "https://open.feishu.cn/open-apis/im/v1/messages"
@@ -117,7 +118,13 @@ class FeiShuChanel(ChatChannel):
                 "msg_type": msg_type,
                 "content": json.dumps({content_key: reply_content})
             }
+            logger.info(f"[FeiShu] 私聊发送请求 - URL: {url}, msg_type: {msg_type}, content_key: {content_key}, reply_content: {reply_content}")
+            logger.info(f"[FeiShu] 请求参数 - params: {params}, data: {data}")
             res = requests.post(url=url, headers=headers, params=params, json=data, timeout=(5, 10))
+        
+        logger.info(f"[FeiShu] 发送响应状态码: {res.status_code}")
+        logger.info(f"[FeiShu] 发送响应内容: {res.text}")
+        
         res = res.json()
         if res.get("code") == 0:
             logger.info(f"[FeiShu] send message success")
@@ -246,6 +253,10 @@ class FeiShuChanel(ChatChannel):
             'Authorization': f'Bearer {access_token}',
         }
         
+        logger.info(f"[FeiShu] 开始上传视频，大小: {len(video_data)} 字节")
+        logger.info(f"[FeiShu] 上传URL: {upload_url}")
+        logger.info(f"[FeiShu] 上传参数: {data}")
+        
         temp_name = None
         try:
             # 创建临时文件
@@ -253,16 +264,20 @@ class FeiShuChanel(ChatChannel):
             with open(temp_name, "wb") as file:
                 file.write(video_data)
             
+            logger.info(f"[FeiShu] 临时文件已创建: {temp_name}")
+            
             with open(temp_name, "rb") as file:
                 files = {"file": file}
                 upload_response = requests.post(upload_url, files=files, data=data, headers=headers)
-                logger.info(f"[FeiShu] upload video response: {upload_response.status_code}")
+                logger.info(f"[FeiShu] upload video response status: {upload_response.status_code}")
+                logger.info(f"[FeiShu] upload video response text: {upload_response.text}")
                 
                 # 删除临时文件
                 os.remove(temp_name)
                 
                 if upload_response.status_code == 200:
                     result = upload_response.json()
+                    logger.info(f"[FeiShu] upload video response json: {result}")
                     if result.get("code") == 0:
                         file_key = result.get("data", {}).get("file_key")
                         logger.info(f"[FeiShu] video upload success, file_key: {file_key}")

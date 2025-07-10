@@ -478,6 +478,21 @@ class stability(Plugin):
             self._handle_text2video_async(user_prompt, e_context)
             return
 
+        # 处理测试视频指令
+        if content == "测试视频":
+            # 立即设置事件阻断，防止指令继续传播
+            e_context.action = EventAction.BREAK_PASS
+            
+            test_video_path = "/tmp/test.mp4"
+            if os.path.exists(test_video_path):
+                tip = "🎬 开始发送测试视频..."
+                self._send_reply(tip, e_context)
+                self._send_test_video(test_video_path, e_context)
+            else:
+                tip = f"❌ 测试视频文件不存在: {test_video_path}"
+                self._send_reply(tip, e_context)
+            return
+
         # 处理veo3视频生成指令
         if content.startswith(self.veo3_prefix):
             # 立即设置事件阻断，防止指令继续传播
@@ -1438,4 +1453,29 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"自定义视频发送失败: {e}")
             self._send_reply(f"视频发送失败: {str(e)}", e_context)
+
+    def _send_test_video(self, video_path, e_context):
+        """发送测试视频"""
+        try:
+            logger.info(f"[测试视频] 开始发送测试视频: {video_path}")
+            
+            # 读取视频文件
+            with open(video_path, "rb") as f:
+                video_data = f.read()
+            
+            logger.info(f"[测试视频] 视频文件大小: {len(video_data)} 字节")
+            
+            # 发送视频文件
+            video_stream = io.BytesIO(video_data)
+            video_stream.seek(0)
+            reply = Reply(ReplyType.VIDEO, video_stream)
+            
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+            
+            logger.info("[测试视频] 测试视频发送完成")
+            
+        except Exception as e:
+            logger.error(f"[测试视频] 测试视频发送失败: {e}")
+            self._send_reply(f"测试视频发送失败: {str(e)}", e_context)
         
