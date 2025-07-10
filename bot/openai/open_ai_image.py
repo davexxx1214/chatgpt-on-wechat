@@ -39,6 +39,7 @@ class OpenAIImage(object):
             
             payload = {
                 "model": "gpt-image-1",
+                "moderation":"low",
                 "prompt": query,
                 "n": 1,
                 "output_format": "png",
