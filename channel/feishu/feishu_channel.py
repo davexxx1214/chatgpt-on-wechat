@@ -90,14 +90,10 @@ class FeiShuChanel(ChatChannel):
                 logger.warning("[FeiShu] upload video failed")
                 return
             
-            # 尝试获取视频时长
-            duration = self._get_video_duration(video_data)
-            logger.info(f"[FeiShu] 视频时长: {duration}秒")
-            
-            # 构建完整的media content
+            # 根据飞书官方文档，media消息的content只需包含file_key
+            # duration等信息由飞书客户端自动解析
             media_content = {
-                "file_key": file_key,
-                "duration": duration
+                "file_key": file_key
             }
             reply_content = json.dumps(media_content)
             msg_type = "media"
