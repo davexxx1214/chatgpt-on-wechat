@@ -269,21 +269,25 @@ class FeishuController:
                     
                     logger.info(f"[FeiShu] Group message - type: {msg_type}, mentions: {mentions}")
                     
-                    # 检查是否有@某人
-                    if not mentions:
-                        # 群聊中未@任何人不响应
-                        logger.info(f"[FeiShu] Group message ignored - no mentions")
-                        return self.SUCCESS_MSG
+                    # 对于图片/文件消息，放宽@检查限制（因为飞书图片消息可能不包含mentions）
+                    if msg_type in ["image", "file"]:
+                        logger.info(f"[FeiShu] Image/file message in group, skip mentions check")
+                    else:
+                        # 文本消息需要检查是否有@某人
+                        if not mentions:
+                            # 群聊中未@任何人不响应
+                            logger.info(f"[FeiShu] Group message ignored - no mentions")
+                            return self.SUCCESS_MSG
                     
-                    # 检查是否@了机器人
-                    bot_name = conf().get("feishu_bot_name")
-                    mentioned_name = mentions[0].get("name") if mentions else None
-                    logger.info(f"[FeiShu] Bot name: {bot_name}, Mentioned: {mentioned_name}")
-                    
-                    if bot_name and mentioned_name != bot_name:
-                        # 不是@机器人，不响应
-                        logger.info(f"[FeiShu] Group message ignored - not mentioning bot")
-                        return self.SUCCESS_MSG
+                        # 检查是否@了机器人（仅对文本消息）
+                        bot_name = conf().get("feishu_bot_name")
+                        mentioned_name = mentions[0].get("name") if mentions else None
+                        logger.info(f"[FeiShu] Bot name: {bot_name}, Mentioned: {mentioned_name}")
+                        
+                        if bot_name and mentioned_name != bot_name:
+                            # 不是@机器人，不响应
+                            logger.info(f"[FeiShu] Group message ignored - not mentioning bot")
+                            return self.SUCCESS_MSG
                     
                     # 群聊
                     is_group = True
