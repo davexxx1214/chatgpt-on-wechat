@@ -258,12 +258,21 @@ class FeishuController:
                 is_group = False
                 chat_type = msg.get("chat_type")
                 if chat_type == "group":
-                    if not msg.get("mentions") and msg.get("message_type") == "text":
-                        # 群聊中未@不响应
+                    # 群聊消息处理
+                    mentions = msg.get("mentions")
+                    msg_type = msg.get("message_type")
+                    
+                    # 检查是否有@某人
+                    if not mentions:
+                        # 群聊中未@任何人不响应
                         return self.SUCCESS_MSG
-                    if msg.get("mentions")[0].get("name") != conf().get("feishu_bot_name") and msg.get("message_type") == "text":
+                    
+                    # 检查是否@了机器人
+                    bot_name = conf().get("feishu_bot_name")
+                    if bot_name and mentions[0].get("name") != bot_name:
                         # 不是@机器人，不响应
                         return self.SUCCESS_MSG
+                    
                     # 群聊
                     is_group = True
                     receive_id_type = "chat_id"
