@@ -85,12 +85,23 @@ class FeiShuChanel(ChatChannel):
                 with open(reply.content, 'rb') as f:
                     video_data = f.read()
             
-            reply_content = self._upload_video_to_feishu(video_data, access_token)
-            if not reply_content:
+            file_key = self._upload_video_to_feishu(video_data, access_token)
+            if not file_key:
                 logger.warning("[FeiShu] upload video failed")
                 return
+            
+            # 尝试获取视频时长
+            duration = self._get_video_duration(video_data)
+            logger.info(f"[FeiShu] 视频时长: {duration}秒")
+            
+            # 构建完整的media content
+            media_content = {
+                "file_key": file_key,
+                "duration": duration
+            }
+            reply_content = json.dumps(media_content)
             msg_type = "media"
-            content_key = "file_key"
+            content_key = None  # 使用完整的content而不是单个key
         elif reply.type == ReplyType.VIDEO_URL:
             # 飞书不支持直接发送视频链接，发送提示文本
             logger.info(f"[FeiShu] send video URL as text message, type={context.type}")
@@ -101,14 +112,22 @@ class FeiShuChanel(ChatChannel):
             # 文本消息，截断内容避免日志过长
             content_preview = reply.content[:100] + "..." if len(reply.content) > 100 else reply.content
             logger.info(f"[FeiShu] start send text message, type={context.type}, content={content_preview}")
+        # 构建content
+        if content_key is None:
+            # 直接使用reply_content（已经是JSON字符串）
+            content = reply_content
+        else:
+            # 包装在content_key中
+            content = json.dumps({content_key: reply_content})
+        
         if is_group:
             # 群聊中直接回复
             url = f"https://open.feishu.cn/open-apis/im/v1/messages/{msg.msg_id}/reply"
             data = {
                 "msg_type": msg_type,
-                "content": json.dumps({content_key: reply_content})
+                "content": content
             }
-            logger.info(f"[FeiShu] 群聊发送请求 - URL: {url}, msg_type: {msg_type}, content_key: {content_key}, reply_content: {reply_content}")
+            logger.info(f"[FeiShu] 群聊发送请求 - URL: {url}, msg_type: {msg_type}, content_key: {content_key}, content: {content}")
             res = requests.post(url=url, headers=headers, json=data, timeout=(5, 10))
         else:
             url = "https://open.feishu.cn/open-apis/im/v1/messages"
@@ -116,9 +135,9 @@ class FeiShuChanel(ChatChannel):
             data = {
                 "receive_id": context.get("receiver"),
                 "msg_type": msg_type,
-                "content": json.dumps({content_key: reply_content})
+                "content": content
             }
-            logger.info(f"[FeiShu] 私聊发送请求 - URL: {url}, msg_type: {msg_type}, content_key: {content_key}, reply_content: {reply_content}")
+            logger.info(f"[FeiShu] 私聊发送请求 - URL: {url}, msg_type: {msg_type}, content_key: {content_key}, content: {content}")
             logger.info(f"[FeiShu] 请求参数 - params: {params}, data: {data}")
             res = requests.post(url=url, headers=headers, params=params, json=data, timeout=(5, 10))
         
@@ -294,6 +313,38 @@ class FeiShuChanel(ChatChannel):
             if temp_name and os.path.exists(temp_name):
                 os.remove(temp_name)
             return None
+
+    def _get_video_duration(self, video_data):
+        """获取视频时长"""
+        try:
+            # 检查是否有MediaInfo库
+            try:
+                from pymediainfo import MediaInfo
+                # 创建临时文件
+                temp_name = str(uuid.uuid4()) + ".mp4"
+                with open(temp_name, "wb") as file:
+                    file.write(video_data)
+                
+                try:
+                    # 使用MediaInfo获取时长
+                    media_info = MediaInfo.parse(temp_name)
+                    if media_info.tracks and media_info.tracks[0].duration:
+                        duration_ms = media_info.tracks[0].duration
+                        if duration_ms > 0:
+                            duration_seconds = int(duration_ms / 1000)
+                            return min(duration_seconds, 60)  # 限制最大60秒
+                finally:
+                    # 删除临时文件
+                    if os.path.exists(temp_name):
+                        os.remove(temp_name)
+            except ImportError:
+                logger.warning("[FeiShu] pymediainfo not available, using default duration")
+            
+            # 默认返回5秒
+            return 5
+        except Exception as e:
+            logger.warning(f"[FeiShu] get video duration failed: {e}, using default")
+            return 5
 
 
 
