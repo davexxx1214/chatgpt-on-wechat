@@ -267,15 +267,22 @@ class FeishuController:
                     mentions = msg.get("mentions")
                     msg_type = msg.get("message_type")
                     
+                    logger.info(f"[FeiShu] Group message - type: {msg_type}, mentions: {mentions}")
+                    
                     # 检查是否有@某人
                     if not mentions:
                         # 群聊中未@任何人不响应
+                        logger.info(f"[FeiShu] Group message ignored - no mentions")
                         return self.SUCCESS_MSG
                     
                     # 检查是否@了机器人
                     bot_name = conf().get("feishu_bot_name")
-                    if bot_name and mentions[0].get("name") != bot_name:
+                    mentioned_name = mentions[0].get("name") if mentions else None
+                    logger.info(f"[FeiShu] Bot name: {bot_name}, Mentioned: {mentioned_name}")
+                    
+                    if bot_name and mentioned_name != bot_name:
                         # 不是@机器人，不响应
+                        logger.info(f"[FeiShu] Group message ignored - not mentioning bot")
                         return self.SUCCESS_MSG
                     
                     # 群聊
