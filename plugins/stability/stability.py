@@ -523,6 +523,8 @@ class stability(Plugin):
             return
 
         # 处理不同类型的任务
+        delete_file_immediately = True  # 标记是否立即删除文件
+        
         if has_rmbg_task:
             self.params_cache[user_id]['rmbg_quota'] = 0
             self._call_rmbg_service(image_path, user_id, e_context)
@@ -531,21 +533,25 @@ class stability(Plugin):
             prompt = waiting_info.get("prompt", "请描述您要编辑图片的内容。")
             self._handle_edit_image_async(image_path, prompt, e_context)
             self.waiting_edit_image.pop(key, None)
+            delete_file_immediately = False  # 异步任务会处理文件删除
         elif has_inpaint_task:
             waiting_info = self.waiting_inpaint_image[key]
             prompt = waiting_info.get("prompt", "请描述您要对图片进行的修改。")
             self._handle_inpaint_image_async(image_path, prompt, e_context)
             self.waiting_inpaint_image.pop(key, None)
+            delete_file_immediately = False  # 异步任务会处理文件删除
         elif has_fal_edit_task:
             waiting_info = self.waiting_fal_edit[key]
             prompt = waiting_info.get("prompt", "编辑图片")
             self._handle_fal_edit_async(image_path, prompt, e_context)
             self.waiting_fal_edit.pop(key, None)
+            delete_file_immediately = False  # 异步任务会处理文件删除
         elif has_video_task:
             waiting_info = self.waiting_video[key]
             prompt = waiting_info.get("prompt", "")
             self._handle_img2video_async(image_path, prompt, e_context)
             self.waiting_video.pop(key, None)
+            delete_file_immediately = False  # 异步任务会处理文件删除
         elif has_blend_task:
             # 保存图片到临时文件用于多图编辑
             with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
@@ -560,12 +566,13 @@ class stability(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
-        # 删除原始文件
-        try:
-            os.remove(image_path)
-            logger.info(f"文件 {image_path} 已删除")
-        except Exception as e:
-            logger.error(f"删除文件失败: {e}")
+        # 只有同步任务才立即删除文件，异步任务由任务本身负责删除
+        if delete_file_immediately:
+            try:
+                os.remove(image_path)
+                logger.info(f"文件 {image_path} 已删除")
+            except Exception as e:
+                logger.error(f"删除文件失败: {e}")
 
     def _call_jimeng_service(self, jimeng_prompt, e_context):
         """调用即梦AI服务"""
@@ -716,6 +723,14 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"edit image service exception: {e}")
             self._send_reply(f"图片编辑服务出错: {str(e)}", e_context)
+        finally:
+            # 删除原始图片文件
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    logger.info(f"原始图片文件已删除: {image_path}")
+            except Exception as e:
+                logger.error(f"删除原始图片文件失败: {image_path}, error: {e}")
 
     def _handle_inpaint_image_async(self, image_path, prompt, e_context):
         """异步处理Gemini修图请求"""
@@ -804,7 +819,7 @@ class stability(Plugin):
                     reply = Reply(ReplyType.IMAGE, image_io)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
-                
+
                 # 清理临时文件
                 try:
                     os.remove(tmp_path)
@@ -818,6 +833,14 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"Gemini inpaint service exception: {e}")
             self._send_reply(f"Gemini修图服务出错: {str(e)}", e_context)
+        finally:
+            # 删除原始图片文件
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    logger.info(f"原始图片文件已删除: {image_path}")
+            except Exception as e:
+                logger.error(f"删除原始图片文件失败: {image_path}, error: {e}")
 
     def _handle_blend_service_async(self, image_paths, prompt, e_context):
         """异步处理多图编辑请求"""
@@ -1052,6 +1075,14 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"[fal_edit] 图片编辑API调用异常: {e}")
             self._send_reply(f"图片编辑服务出错: {str(e)}", e_context)
+        finally:
+            # 删除原始图片文件
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    logger.info(f"原始图片文件已删除: {image_path}")
+            except Exception as e:
+                logger.error(f"删除原始图片文件失败: {image_path}, error: {e}")
 
     # ============ 视频生成相关方法 ============
 
@@ -1120,6 +1151,14 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"[img2video] 图生视频API调用异常: {e}")
             self._send_reply(f"图生视频服务出错: {str(e)}", e_context)
+        finally:
+            # 删除原始图片文件
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    logger.info(f"原始图片文件已删除: {image_path}")
+            except Exception as e:
+                logger.error(f"删除原始图片文件失败: {image_path}, error: {e}")
 
     def _handle_text2video_async(self, prompt, e_context):
         """异步处理文生视频请求"""
