@@ -641,15 +641,12 @@ class stability(Plugin):
             )
 
             if response.status_code == 200:
-                image = self._img_to_png_from_bytes(response.content)
-                if image:
-                    reply = Reply(ReplyType.IMAGE, image)
-                    e_context["reply"] = reply
-                    e_context.action = EventAction.BREAK_PASS
-                else:
-                    reply = Reply(ReplyType.TEXT, "服务暂不可用")
-                    e_context["reply"] = reply
-                    e_context.action = EventAction.BREAK_PASS
+                # 转换为base64格式发送，兼容飞书等平台
+                image_data = response.content
+                image_b64 = base64.b64encode(image_data).decode()
+                data_url = f"data:image/png;base64,{image_b64}"
+                
+                self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
             else:
                 reply = Reply(ReplyType.TEXT, "服务暂不可用,可能是图片分辨率太高(仅支持分辨率小于2048*2048的图片)")
                 e_context["reply"] = reply
@@ -697,25 +694,15 @@ class stability(Plugin):
                 if "data" in result and len(result["data"]) > 0:
                     image_data = result["data"][0]
                     if "b64_json" in image_data and image_data["b64_json"]:
-                        image_bytes = base64.b64decode(image_data["b64_json"])
-                        # 直接发送图片字节
+                        image_b64 = image_data["b64_json"]
+                        # 创建data URL格式，兼容飞书等平台
+                        data_url = f"data:image/png;base64,{image_b64}"
+                        
+                        # 发送完成提示
                         self._send_reply("🖼️ 您的图片已编辑完成！", e_context)
-                        # 使用临时文件发送图片
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                            tmp_file.write(image_bytes)
-                            tmp_path = tmp_file.name
                         
-                        image_io = self._img_to_png(tmp_path)
-                        if image_io:
-                            reply = Reply(ReplyType.IMAGE, image_io)
-                            e_context["reply"] = reply
-                            e_context.action = EventAction.BREAK_PASS
-                        
-                        # 清理临时文件
-                        try:
-                            os.remove(tmp_path)
-                        except:
-                            pass
+                        # 直接发送图片
+                        self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
                     else:
                         self._send_reply("图片编辑失败，API没有返回图片数据", e_context)
                 else:
@@ -809,22 +796,11 @@ class stability(Plugin):
 
             # 发送图片部分
             if edited_image_bytes:
-                # 使用临时文件发送图片
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                    tmp_file.write(edited_image_bytes)
-                    tmp_path = tmp_file.name
+                # 转换为base64格式发送
+                image_b64 = base64.b64encode(edited_image_bytes).decode()
+                data_url = f"data:image/png;base64,{image_b64}"
                 
-                image_io = self._img_to_png(tmp_path)
-                if image_io:
-                    reply = Reply(ReplyType.IMAGE, image_io)
-                    e_context["reply"] = reply
-                    e_context.action = EventAction.BREAK_PASS
-
-                # 清理临时文件
-                try:
-                    os.remove(tmp_path)
-                except:
-                    pass
+                self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
                 sent_something = True
 
             if not sent_something:
@@ -904,18 +880,12 @@ class stability(Plugin):
                             tmp_file.write(image_bytes)
                             tmp_path = tmp_file.name
                         
-                        image_io = self._img_to_png(tmp_path)
-                        if image_io:
-                            self._send_reply("🖼️ 您的多图编辑已完成！", e_context)
-                            reply = Reply(ReplyType.IMAGE, image_io)
-                            e_context["reply"] = reply
-                            e_context.action = EventAction.BREAK_PASS
+                        # 转换为base64格式发送，兼容飞书等平台
+                        image_b64 = base64.b64encode(image_bytes).decode()
+                        data_url = f"data:image/png;base64,{image_b64}"
                         
-                        # 清理临时文件
-                        try:
-                            os.remove(tmp_path)
-                        except:
-                            pass
+                        self._send_reply("🖼️ 您的多图编辑已完成！", e_context)
+                        self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
                     else:
                         self._send_reply("多图编辑失败，API没有返回图片数据", e_context)
                 else:
@@ -1285,22 +1255,11 @@ class stability(Plugin):
                 image_data = response.content
                 logger.info(f"[{task_name}] 图片下载成功，大小: {len(image_data)} 字节")
                 
-                # 发送图片
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                    tmp_file.write(image_data)
-                    tmp_path = tmp_file.name
+                # 转换为base64格式发送，兼容飞书等平台
+                image_b64 = base64.b64encode(image_data).decode()
+                data_url = f"data:image/png;base64,{image_b64}"
                 
-                image_io = self._img_to_png(tmp_path)
-                if image_io:
-                    reply = Reply(ReplyType.IMAGE, image_io)
-                    e_context["reply"] = reply
-                    e_context.action = EventAction.BREAK_PASS
-                
-                # 清理临时文件
-                try:
-                    os.remove(tmp_path)
-                except:
-                    pass
+                self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
                 return True
             else:
                 raise Exception(f"图片下载失败，状态码: {response.status_code}")
