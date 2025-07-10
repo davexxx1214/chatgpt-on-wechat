@@ -385,6 +385,7 @@ class stability(Plugin):
                     reply = Reply(type=ReplyType.TEXT, content=tip)
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
+            e_context.action = EventAction.BREAK_PASS
             return
 
         # 处理FAL图片编辑指令 (/p)
@@ -472,6 +473,7 @@ class stability(Plugin):
             notice = "您的文生视频的请求已经收到，请稍候..."
             self._send_reply(notice, e_context)
             self._handle_text2video_async(user_prompt, e_context)
+            e_context.action = EventAction.BREAK_PASS
             return
 
         # 处理veo3视频生成指令
@@ -494,6 +496,7 @@ class stability(Plugin):
             tip = f"💡已开启veo3视频生成模式，将根据您的描述生成视频。\n当前的提示词为：\n{user_prompt or '无'}"
             self._send_reply(tip, e_context)
             self._handle_veo3_video_async(user_prompt, e_context)
+            e_context.action = EventAction.BREAK_PASS
             return
 
     def _handle_image_message(self, e_context: EventContext, user_id: str):
