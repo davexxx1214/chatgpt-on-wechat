@@ -150,24 +150,51 @@ class stability(Plugin):
         except Exception as e:
             logger.warn(f"stability init failed: {e}")
 
-    def is_at_message(self, message: dict) -> bool:
-        """检查是否是@消息"""
-        if not message.get("IsGroup"):
+    def is_at_message(self, message) -> bool:
+        """检查是否是@消息，兼容不同平台"""
+        try:
+            # 兼容字典格式
+            if isinstance(message, dict):
+                if not message.get("IsGroup"):
+                    return False
+                content = message.get("Content", "")
+            else:
+                # 兼容消息对象
+                if not getattr(message, 'is_group', False):
+                    return False
+                content = getattr(message, 'content', "") or getattr(message, 'Content', "")
+            
+            # 去掉"昵称: 换行"前缀
+            content = re.sub(r"^[^@\n]+:\s*\n", "", content)
+            for robot_name in self.robot_names:
+                if re.match(f"^@{robot_name}[\\s]*", content):
+                    return True
             return False
-        content = message.get("Content", "")
-        # 去掉"昵称: 换行"前缀
-        content = re.sub(r"^[^@\n]+:\s*\n", "", content)
-        for robot_name in self.robot_names:
-            if re.match(f"^@{robot_name}[\\s]*", content):
-                return True
-        return False
+        except Exception as e:
+            logger.warning(f"stability: 检查@消息失败: {e}")
+            return False
 
-    def get_waiting_key(self, message: dict):
-        """获取等待状态的键"""
-        if message.get("IsGroup"):
-            return message["FromWxid"]
-        else:
-            return message["SenderWxid"]
+    def get_waiting_key(self, msg):
+        """获取等待状态的键，兼容不同平台的消息对象"""
+        try:
+            # 尝试ChatMessage对象的属性
+            if hasattr(msg, 'from_user_id'):
+                return msg.from_user_id
+            elif hasattr(msg, 'actual_user_id'):
+                return msg.actual_user_id
+            
+            # 尝试字典格式（微信等）
+            if isinstance(msg, dict):
+                if msg.get("IsGroup"):
+                    return msg.get("FromWxid", msg.get("from_user_id", "unknown"))
+                else:
+                    return msg.get("SenderWxid", msg.get("from_user_id", "unknown"))
+            
+            # 兜底方案
+            return getattr(msg, 'from_user_id', 'unknown')
+        except Exception as e:
+            logger.warning(f"stability: 获取等待键失败: {e}, 使用默认值")
+            return 'unknown'
 
     def find_image_by_md5(self, md5: str) -> bytes:
         """通过MD5在本地文件目录中查找图片"""
@@ -196,16 +223,19 @@ class stability(Plugin):
         if not at_list:
             return at_list
         
-        # 获取机器人自己的wxid
-        bot_wxid = getattr(bot, 'wxid', None) if bot else None
-        if not bot_wxid:
+        # 获取机器人自己的ID
+        bot_id = None
+        if bot:
+            bot_id = getattr(bot, 'wxid', None) or getattr(bot, 'user_id', None) or getattr(bot, 'bot_id', None)
+        
+        if not bot_id:
             return at_list
         
-        # 过滤掉机器人自己的wxid
-        filtered_list = [wxid for wxid in at_list if wxid != bot_wxid]
+        # 过滤掉机器人自己的ID
+        filtered_list = [user_id for user_id in at_list if user_id != bot_id]
         
         if len(filtered_list) != len(at_list):
-            logger.info(f"stability: 已过滤掉机器人自己的wxid: {bot_wxid}")
+            logger.info(f"stability: 已过滤掉机器人自己的ID: {bot_id}")
         
         return filtered_list
 
@@ -481,9 +511,16 @@ class stability(Plugin):
             return
 
         logger.info("stability: 开始处理图片")
-        context.get("msg").prepare()
-        image_path = context.content
-        logger.info(f"stability: 获取到图片路径 {image_path}")
+        try:
+            # 兼容不同平台的图片准备方式
+            if hasattr(context.get("msg"), 'prepare'):
+                context.get("msg").prepare()
+            image_path = context.content
+            logger.info(f"stability: 获取到图片路径 {image_path}")
+        except Exception as e:
+            logger.error(f"stability: 图片准备失败: {e}")
+            self._send_reply("图片处理失败，请重试", e_context)
+            return
 
         # 处理不同类型的任务
         if has_rmbg_task:
