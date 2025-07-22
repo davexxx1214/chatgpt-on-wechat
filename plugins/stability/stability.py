@@ -52,7 +52,7 @@ except ImportError:
     name="stability",
     desire_priority=2,
     desc="A plugin with jimeng, remove background, edit image, inpaint, multi-image blend, fal edit, video generation features",
-    version="2.1.0",
+    version="2.1.1",
     author="davexxx",
 )
 
@@ -77,6 +77,9 @@ class stability(Plugin):
             self.api_key = self.config.get("api_key", "")
             self.robot_names = self.config.get("robot_names", [])
             self.total_timeout = self.config.get("total_timeout", 10)
+            
+            # jimeng专用超时配置 - 图片生成通常需要更长时间
+            self.jimeng_timeout = self.config.get("jimeng_timeout", 120)
             
             # jimeng配置
             self.jimeng_prefix = self.config.get("jimeng_prefix", "jimeng")
@@ -617,7 +620,7 @@ class stability(Plugin):
                     "Authorization": f"Bearer {self.jimeng_api_key}"
                 },
                 json={"prompt": f"{jimeng_prompt}"},
-                timeout=self.total_timeout
+                timeout=self.jimeng_timeout
             )
 
             if response.status_code == 200:

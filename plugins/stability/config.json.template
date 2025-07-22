@@ -1,5 +1,39 @@
 {
-  "inpaint_url":"",
-  "api_key":"",
-  "inpaint_prefix":"修图"
+  "api_key": "your_stability_api_key_here",
+  "robot_names": ["机器人名称1", "机器人名称2"],
+  "total_timeout": 10,
+  
+  "jimeng_prefix": "jimeng",
+  "jimeng_api_key": "your_jimeng_api_key_here",
+  "jimeng_url": "your_jimeng_api_url_here",
+  "jimeng_timeout": 120,
+  
+  "rmbg_url": "your_remove_bg_api_url_here",
+  "rmbg_prefix": "去背景",
+  
+  "edit_image_prefix": "垫图",
+  "openai_image_api_key": "your_openai_image_api_key_here",
+  "openai_image_api_base": "your_openai_image_api_base_here",
+  "image_model": "gpt-image-1",
+  
+  "inpaint_prefix": "修图",
+  "google_api_key": "your_google_api_key_here",
+  "gemini_model_name": "models/gemini-2.0-flash-exp",
+  
+  "blend_prefix": "/b",
+  "end_prefix": "/e",
+  
+  "fal_edit_prefix": "/p",
+  "fal_img_prefix": "图生视频",
+  "fal_text_prefix": "文生视频",
+  "veo3_prefix": "veo3",
+  
+  "fal_api_key": "your_fal_api_key_here",
+  "fal_edit_model": "flux-pro/kontext",
+  "fal_kling_img_model": "kling-video/v2/master/image-to-video",
+  "fal_kling_text_model": "kling-video/v2/master/text-to-video",
+  "veo3_retry_times": 30,
+  
+  "veo3_api_key": "your_veo3_api_key_here",
+  "veo3_api_base": "your_veo3_api_base_here"
 }
