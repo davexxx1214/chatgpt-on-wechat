@@ -114,9 +114,9 @@ class _mjApi:
                 "botType": "MID_JOURNEY",
                 "prompt": prompt
             }
-            # 只有在有base64图片时才添加base64字段
+            # 只有在有base64图片时才添加base64Array字段
             if base64:
-                data["base64"] = base64
+                data["base64Array"] = [base64]  # 需要是数组格式
             # 只有在有用户信息时才添加state字段
             if self.user:
                 data["state"] = self.user
@@ -159,6 +159,7 @@ class _mjApi:
         try:
             url = self.baseUrl + "/mj/submit/blend"
             data = {
+                "botType": "MID_JOURNEY",
                 "base64Array": base64Array
             }
             if dimensions:
@@ -175,7 +176,10 @@ class _mjApi:
     def describe(self, base64):
         try:
             url = self.baseUrl + "/mj/submit/describe"
-            data = {"base64": base64}
+            data = {
+                "botType": "MID_JOURNEY",
+                "base64Array": [base64]  # 改为数组格式
+            }
             if self.user:
                 data["state"] = self.user
             res = requests.post(url, json=data, headers=self.headers)
