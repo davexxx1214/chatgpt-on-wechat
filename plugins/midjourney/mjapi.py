@@ -11,7 +11,7 @@ class _mjApi:
         }
         self.proxy = config['discordapp_proxy']
         self.baseUrl = config['mj_url']
-        self.headers["mj-api-secret"] = config['mj_api_secret']
+        self.headers["Authorization"] = f"Bearer {config['mj_api_secret']}"
         self.imagine_prefix = config['imagine_prefix']
         self.fetch_prefix = config['fetch_prefix']
         self.up_prefix = config['up_prefix']
@@ -27,32 +27,97 @@ class _mjApi:
     def set_mj(self, mj_url, mj_api_secret="", proxy=""):
         self.baseUrl = mj_url
         self.proxy = proxy
-        self.headers["mj-api-secret"] = mj_api_secret
+        self.headers["Authorization"] = f"Bearer {mj_api_secret}"
 
     def subTip(self, res):
-        rj = res.json()
-        if not rj:
-            return False, "❌ MJ服务异常", ""
-        code = rj["code"]
-        id = rj['result']
-        if code == 1:
-            msg = "✅ 您的任务已提交\n"
-            msg += f"🚀 正在快速处理中，请稍后\n"
-            msg += f"📨 ID: {id}\n"
-            msg += f"✍️ 使用[{self.fetch_prefix[0]} + 任务ID操作]\n"
-            msg += f"✍️ {self.fetch_prefix[0]} {id}"
-            return True, msg, rj["result"]
-        else:
-            return False, rj['description'], ""
+        try:
+            rj = res.json()
+            if not rj:
+                return False, "❌ MJ服务异常", ""
+            
+            # 记录实际的响应内容以便调试
+            logger.info(f"[MJ] API响应: {rj}")
+            
+            # 检查响应格式
+            if "code" in rj:
+                # 标准格式：包含code字段
+                code = rj["code"]
+                if code == 1:
+                    # 成功响应
+                    if "result" in rj:
+                        id = rj['result']
+                        msg = "✅ 您的任务已提交\n"
+                        msg += f"🚀 正在快速处理中，请稍后\n"
+                        msg += f"📨 ID: {id}\n"
+                        msg += f"✍️ 使用[{self.fetch_prefix[0]} + 任务ID操作]\n"
+                        msg += f"✍️ {self.fetch_prefix[0]} {id}"
+                        return True, msg, rj["result"]
+                    else:
+                        return False, "❌ 响应中缺少result字段", ""
+                elif code == 22:
+                    # 排队中
+                    return False, "⏳ 任务已加入队列，请稍后重试", ""
+                else:
+                    # 其他错误代码
+                    description = rj.get('description', f'未知错误 (code: {code})')
+                    return False, f"❌ {description}", ""
+            else:
+                # 非标准格式：尝试其他可能的响应格式
+                logger.warning(f"[MJ] 响应中没有code字段，尝试解析其他格式")
+                
+                if "success" in rj:
+                    # 新格式可能使用 success 字段
+                    if rj["success"]:
+                        id = rj.get('data', {}).get('id') or rj.get('id', '') or rj.get('result', '')
+                        if id:
+                            msg = "✅ 您的任务已提交\n"
+                            msg += f"🚀 正在快速处理中，请稍后\n"
+                            msg += f"📨 ID: {id}\n"
+                            msg += f"✍️ 使用[{self.fetch_prefix[0]} + 任务ID操作]\n"
+                            msg += f"✍️ {self.fetch_prefix[0]} {id}"
+                            return True, msg, id
+                        else:
+                            return False, "❌ 任务提交成功但未获取到ID", ""
+                    else:
+                        error_msg = rj.get('message') or rj.get('error') or '未知错误'
+                        return False, f"❌ {error_msg}", ""
+                elif "error" in rj:
+                    # 错误响应格式
+                    error_msg = rj.get('error', {}).get('message') if isinstance(rj.get('error'), dict) else rj.get('error', '未知错误')
+                    return False, f"❌ {error_msg}", ""
+                else:
+                    # 完全未知的响应格式
+                    return False, f"❌ 未知的响应格式，请检查API配置。响应: {str(rj)[:100]}", ""
+                    
+        except json.JSONDecodeError as e:
+            logger.error(f"[MJ] JSON解析错误: {e}")
+            try:
+                response_text = res.text
+                logger.error(f"[MJ] 原始响应内容: {response_text}")
+                return False, f"❌ 响应格式错误: {response_text[:200]}", ""
+            except:
+                return False, "❌ 响应解析失败", ""
+        except Exception as e:
+            logger.exception(f"[MJ] 解析响应时出错: {e}")
+            try:
+                response_text = res.text
+                logger.error(f"[MJ] 原始响应内容: {response_text}")
+                return False, f"❌ 响应解析失败: {response_text[:200]}", ""
+            except:
+                return False, "❌ 响应解析失败", ""
 
     # 图片想象接口
     def imagine(self, prompt, base64=""):
         try:
             url = self.baseUrl + "/mj/submit/imagine"
             data = {
-                "prompt": prompt,
-                "base64": base64
+                "botType": "MID_JOURNEY",
+                "prompt": prompt
             }
+            # 只有在有base64图片时才添加base64字段
+            if base64:
+                data["base64"] = base64
+            # 只有在有用户信息时才添加state字段
             if self.user:
                 data["state"] = self.user
             res = requests.post(url, json=data, headers=self.headers)
