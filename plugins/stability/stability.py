@@ -86,6 +86,9 @@ class stability(Plugin):
             self.jimeng_api_key = self.config.get("jimeng_api_key", "")
             self.jimeng_url = self.config.get("jimeng_url", "")
             
+            # qwen配置
+            self.qwen_prefix = self.config.get("qwen_prefix", "qwen")
+            
             # 去背景配置
             self.rmbg_url = self.config.get("rmbg_url", "")
             self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
@@ -284,6 +287,28 @@ class stability(Plugin):
                 self._call_jimeng_service(jimeng_prompt, e_context)
             else:
                 tip = f"💡欢迎使用即梦AI绘图，指令格式为:\n\n{self.jimeng_prefix}+ 空格 + 主题(支持中文)\n例如：{self.jimeng_prefix} 一只可爱的猫"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            return
+
+        # 处理qwen指令
+        if content.startswith(self.qwen_prefix):
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                tip = "抱歉，qwen画图服务当前不可用，请联系管理员检查FAL API配置。"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+
+            pattern = self.qwen_prefix + r"\s(.+)"
+            match = re.match(pattern, content)
+            if match:
+                qwen_prompt = content[len(self.qwen_prefix):].strip()
+                logger.info(f"qwen_prompt = : {qwen_prompt}")
+                self._call_qwen_service(qwen_prompt, e_context)
+            else:
+                tip = f"💡欢迎使用qwen画图，指令格式为:\n\n{self.qwen_prefix}+ 空格 + 主题(支持中文)\n例如：{self.qwen_prefix} 画一只猫"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -649,6 +674,68 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"jimeng service exception: {e}")
             reply = Reply(ReplyType.TEXT, f"即梦服务出错: {str(e)}")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def _call_qwen_service(self, qwen_prompt, e_context):
+        """调用qwen画图服务"""
+        logger.info(f"calling qwen service with prompt: {qwen_prompt}")
+
+        tip = f'欢迎使用qwen画图.\n💡图片正在生成中，请耐心等待。\n当前使用的提示词为：\n{qwen_prompt}'
+        self._send_reply(tip, e_context)
+
+        try:
+            # 使用fal_client调用qwen-image模型
+            client = fal_client.SyncClient(key=self.fal_api_key)
+            
+            # 构建请求参数
+            request_data = {
+                "prompt": qwen_prompt,
+                "image_size": "landscape_4_3",
+                "num_inference_steps": 30,
+                "guidance_scale": 2.5,
+                "num_images": 1,
+                "enable_safety_checker": False,
+                "output_format": "png",
+                "negative_prompt": "blurry, ugly"
+            }
+            
+            # 调用fal-ai/qwen-image模型
+            result = client.subscribe(
+                "fal-ai/qwen-image",
+                arguments=request_data,
+                with_logs=True
+            )
+            
+            logger.info(f"[qwen] API响应: {result}")
+            
+            # 处理返回结果
+            if isinstance(result, dict) and "images" in result:
+                images = result.get("images", [])
+                if images and len(images) > 0:
+                    # 遍历所有生成的图片URL并发送
+                    for image_info in images:
+                        url = image_info.get('url')
+                        if url and url.startswith("http"):
+                            logger.info(f"qwen image url = {url}")
+                            self._send_reply(url, e_context, ReplyType.IMAGE_URL)
+                    
+                    reply = Reply(ReplyType.TEXT, "qwen图片生成完毕。")
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+                else:
+                    reply = Reply(ReplyType.TEXT, "qwen生成图片失败，未获取到图片URL")
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+            else:
+                logger.error(f"[qwen] API响应格式不正确: {result}")
+                reply = Reply(ReplyType.TEXT, f"qwen服务响应格式错误: {str(result)}")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                
+        except Exception as e:
+            logger.error(f"qwen service exception: {e}")
+            reply = Reply(ReplyType.TEXT, f"qwen服务出错: {str(e)}")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
