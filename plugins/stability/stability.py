@@ -887,8 +887,8 @@ class stability(Plugin):
                     self._send_reply("由于图像安全策略限制，无法处理该图像。请尝试使用其他图片或修改提示词。", e_context)
                     return
 
-            # 处理响应
-            edited_image_bytes = None
+            # 处理响应 - 支持多张图片
+            edited_images = []  # 存储所有图片数据
             text_parts_content = []
 
             if (hasattr(response, 'candidates') and response.candidates and
@@ -902,7 +902,7 @@ class stability(Plugin):
                     
                     if (hasattr(part, 'inline_data') and part.inline_data and 
                         hasattr(part.inline_data, 'data') and part.inline_data.data):
-                        edited_image_bytes = part.inline_data.data
+                        edited_images.append(part.inline_data.data)
 
             # 发送响应
             sent_something = False
@@ -913,14 +913,44 @@ class stability(Plugin):
                 self._send_reply(full_text_response, e_context)
                 sent_something = True
 
-            # 发送图片部分
-            if edited_image_bytes:
-                # 转换为base64格式发送
-                image_b64 = base64.b64encode(edited_image_bytes).decode()
-                data_url = f"data:image/png;base64,{image_b64}"
+            # 发送图片部分 - 支持多张图片
+            if edited_images:
+                logger.info(f"[Gemini修图] 收到 {len(edited_images)} 张图片")
                 
-                self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
+                # 如果有多张图片，先发送提示信息
+                if len(edited_images) > 1:
+                    tip = f"🖼️ Gemini修图完成！共生成了 {len(edited_images)} 张图片，正在依次发送..."
+                    self._send_reply(tip, e_context)
+                
+                # 依次发送每张图片
+                for i, image_bytes in enumerate(edited_images, 1):
+                    try:
+                        # 转换为base64格式发送
+                        image_b64 = base64.b64encode(image_bytes).decode()
+                        data_url = f"data:image/png;base64,{image_b64}"
+                        
+                        # 如果是多张图片，为每张图片添加序号提示
+                        if len(edited_images) > 1:
+                            image_tip = f"📷 图片 {i}/{len(edited_images)}"
+                            self._send_reply(image_tip, e_context)
+                        
+                        self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
+                        logger.info(f"[Gemini修图] 第 {i} 张图片发送成功")
+                        
+                        # 在多张图片之间添加短暂延迟，避免消息过于密集
+                        if i < len(edited_images):
+                            time.sleep(0.5)
+                            
+                    except Exception as e:
+                        logger.error(f"[Gemini修图] 发送第 {i} 张图片失败: {e}")
+                        self._send_reply(f"⚠️ 第 {i} 张图片发送失败: {str(e)}", e_context)
+                
                 sent_something = True
+                
+                # 发送完成提示
+                if len(edited_images) > 1:
+                    completion_tip = f"✅ 所有 {len(edited_images)} 张图片已发送完成！"
+                    self._send_reply(completion_tip, e_context)
 
             if not sent_something:
                 self._send_reply("Gemini修图失败，API没有返回可识别的内容。", e_context)
