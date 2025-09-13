@@ -115,7 +115,7 @@ class stability(Plugin):
             self.veo3_prefix = self.config.get("veo3_prefix", "veo3")
             
             self.fal_api_key = self.config.get("fal_api_key", "")
-            self.fal_edit_model = self.config.get("fal_edit_model", "flux-pro/kontext")
+            self.fal_edit_model = self.config.get("fal_edit_model", "bytedance/seedream/v4/edit")
             self.fal_kling_img_model = self.config.get("fal_kling_img_model", "kling-video/v2/master/image-to-video")
             self.fal_kling_text_model = self.config.get("fal_kling_text_model", "kling-video/v2/master/text-to-video")
             self.veo3_retry_times = self.config.get("veo3_retry_times", 30)
@@ -429,7 +429,7 @@ class stability(Plugin):
 
             user_prompt = content[len(self.fal_edit_prefix):].strip()
             if not user_prompt:
-                tip = f"欢迎使用flux-pro/kontext图片编辑！\n正确的编辑指令是：{self.fal_edit_prefix} + 要编辑的提示词\n\n例如：\n{self.fal_edit_prefix} 在图片中添加一个甜甜圈\n{self.fal_edit_prefix} 把背景改成蓝色"
+                tip = f"欢迎使用seedream/v4/edit图片编辑！\n正确的编辑指令是：{self.fal_edit_prefix} + 要编辑的提示词\n\n例如：\n{self.fal_edit_prefix} 给模特穿上衣服和鞋子\n{self.fal_edit_prefix} 把背景改成蓝色"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -447,7 +447,7 @@ class stability(Plugin):
             self.waiting_blend.pop(key, None)
             self.waiting_video.pop(key, None)
             
-            tip = f"💡已开启flux-pro/kontext图片编辑模式，您接下来第一张图片会进行编辑。\n当前的提示词为：\n{user_prompt}"
+            tip = f"💡已开启seedream/v4/edit图片编辑模式，您接下来第一张图片会进行编辑。\n当前的提示词为：\n{user_prompt}"
             reply = Reply(type=ReplyType.TEXT, content=tip)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -1153,12 +1153,19 @@ class stability(Plugin):
 
                 logger.info(f"[fal_edit] 图片上传成功: {image_url}")
 
-                # 调用flux-pro/kontext模型进行图片编辑
+                # 调用seedream/v4/edit模型进行图片编辑
                 result = client.subscribe(
                     f"fal-ai/{self.fal_edit_model}",
                     arguments={
                         "prompt": prompt,
-                        "image_url": image_url
+                        "image_urls": [image_url],  # seedream需要使用image_urls数组
+                        "image_size": {
+                            "height": 1280,
+                            "width": 1280
+                        },
+                        "num_images": 1,
+                        "max_images": 1,
+                        "enable_safety_checker": False
                     },
                     with_logs=True
                 )
