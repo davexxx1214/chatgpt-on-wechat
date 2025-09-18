@@ -997,12 +997,12 @@ class stability(Plugin):
             files_list.append(('model', (None, self.image_model)))
             files_list.append(('prompt', (None, prompt)))
             
-            # 使用image字段名添加多张图片（requests支持列表形式的多个同名字段）
+            # 使用image[]数组语法添加多张图片
             file_handles = []
             for i, image_path in enumerate(image_paths):
                 file_handle = open(image_path, 'rb')
                 file_handles.append(file_handle)
-                files_list.append(('image', (f'image{i}.png', file_handle, 'image/png')))
+                files_list.append(('image[]', (f'image{i}.png', file_handle, 'image/png')))
             
             try:
                 response = requests.post(url, headers=headers, files=files_list, timeout=1200)
