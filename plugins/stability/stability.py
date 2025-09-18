@@ -990,28 +990,22 @@ class stability(Plugin):
                 "Authorization": f"Bearer {self.openai_image_api_key}"
             }
             
-            # 准备多图文件
-            files = {
-                'model': (None, self.image_model),
-                'prompt': (None, prompt)
-            }
+            # 构建API请求的文件参数，使用列表形式支持多个同名字段
+            files_list = []
             
-            # 添加多张图片
+            # 添加模型和提示词
+            files_list.append(('model', (None, self.image_model)))
+            files_list.append(('prompt', (None, prompt)))
+            
+            # 使用image字段名添加多张图片（requests支持列表形式的多个同名字段）
+            file_handles = []
             for i, image_path in enumerate(image_paths):
-                with open(image_path, 'rb') as img_file:
-                    files[f'image{i}'] = img_file.read()
-            
-            # 重新构建files字典用于requests
-            files_for_request = {
-                'model': (None, self.image_model),
-                'prompt': (None, prompt)
-            }
-            
-            for i, image_path in enumerate(image_paths):
-                files_for_request[f'image{i}'] = open(image_path, 'rb')
+                file_handle = open(image_path, 'rb')
+                file_handles.append(file_handle)
+                files_list.append(('image', (f'image{i}.png', file_handle, 'image/png')))
             
             try:
-                response = requests.post(url, headers=headers, files=files_for_request, timeout=1200)
+                response = requests.post(url, headers=headers, files=files_list, timeout=1200)
                 
                 if response.status_code != 200:
                     error_message = self._parse_api_error(response)
@@ -1024,11 +1018,6 @@ class stability(Plugin):
                     if "b64_json" in image_data and image_data["b64_json"]:
                         image_bytes = base64.b64decode(image_data["b64_json"])
                         
-                        # 使用临时文件发送图片
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                            tmp_file.write(image_bytes)
-                            tmp_path = tmp_file.name
-                        
                         # 转换为base64格式发送，兼容飞书等平台
                         image_b64 = base64.b64encode(image_bytes).decode()
                         data_url = f"data:image/png;base64,{image_b64}"
@@ -1040,13 +1029,12 @@ class stability(Plugin):
                 else:
                     self._send_reply("多图编辑失败，API返回格式不正确", e_context)
             finally:
-                # 关闭文件句柄
-                for key, file_obj in files_for_request.items():
-                    if hasattr(file_obj, 'close'):
-                        try:
-                            file_obj.close()
-                        except:
-                            pass
+                # 关闭所有文件句柄
+                for file_handle in file_handles:
+                    try:
+                        file_handle.close()
+                    except:
+                        pass
 
         except Exception as e:
             logger.error(f"blend service exception: {e}")
