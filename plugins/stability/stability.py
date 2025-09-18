@@ -969,7 +969,7 @@ class stability(Plugin):
 
     def _handle_blend_service_async(self, image_paths, prompt, e_context):
         """异步处理多图编辑请求"""
-        tip = f"🎨 gpt-image-1多图编辑请求已进入队列，预计需要30-150秒完成, 请稍候...\n提示词：{prompt}"
+        tip = f"🎨 Gemini多图编辑请求已进入队列，请稍候...\n提示词：{prompt}"
         self._send_reply(tip, e_context)
         
         # 启动异步任务
@@ -978,67 +978,132 @@ class stability(Plugin):
         thread.start()
 
     def _handle_blend_service_sync(self, image_paths, prompt, e_context):
-        """同步处理多图编辑请求"""
+        """使用Gemini进行多图编辑"""
         try:
-            if not self.openai_image_api_key or not self.openai_image_api_base:
-                self._send_reply("OpenAI API配置不完整，请检查配置文件", e_context)
+            if not self.gemini_client:
+                self._send_reply("Gemini多图编辑服务当前不可用，请检查Google API配置", e_context)
                 return
 
-            # 构建API请求
-            url = f"{self.openai_image_api_base}/images/edits"
-            headers = {
-                "Authorization": f"Bearer {self.openai_image_api_key}"
-            }
-            
-            # 构建API请求的文件参数，使用列表形式支持多个同名字段
-            files_list = []
-            
-            # 添加模型和提示词
-            files_list.append(('model', (None, self.image_model)))
-            files_list.append(('prompt', (None, prompt)))
-            
-            # 使用image[]数组语法添加多张图片
-            file_handles = []
+            # 加载所有图片为PIL Image对象
+            pil_images = []
             for i, image_path in enumerate(image_paths):
-                file_handle = open(image_path, 'rb')
-                file_handles.append(file_handle)
-                files_list.append(('image[]', (f'image{i}.png', file_handle, 'image/png')))
-            
-            try:
-                response = requests.post(url, headers=headers, files=files_list, timeout=1200)
-                
-                if response.status_code != 200:
-                    error_message = self._parse_api_error(response)
-                    self._send_reply(error_message, e_context)
+                try:
+                    with open(image_path, 'rb') as img_file:
+                        image_bytes = img_file.read()
+                    pil_image = Image.open(io.BytesIO(image_bytes))
+                    pil_images.append(pil_image)
+                    logger.info(f"加载图片 {i+1}/{len(image_paths)}: {image_path}")
+                except Exception as e:
+                    logger.error(f"加载图片失败 {image_path}: {e}")
+                    self._send_reply(f"加载图片 {i+1} 失败，多图编辑终止", e_context)
                     return
+
+            # 安全设置
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+
+            # 生成配置 - 使用支持多图编辑的模型
+            generation_config = {
+                "response_modalities": ["TEXT", "IMAGE"]
+            }
+
+            # 构建请求内容：图片列表 + 提示词
+            contents = pil_images + [prompt]
+            
+            logger.info(f"开始Gemini多图编辑，图片数量: {len(pil_images)}, 提示词: {prompt}")
+
+            # 调用Gemini API
+            response = self.gemini_client.generate_content(
+                contents=contents,
+                safety_settings=safety_settings,
+                generation_config=generation_config
+            )
+            
+            # 处理安全检查
+            if (hasattr(response, 'candidates') and response.candidates and
+                hasattr(response.candidates[0], 'finish_reason')):
+                finish_reason_str = str(response.candidates[0].finish_reason)
+                if 'SAFETY' in finish_reason_str.upper():
+                    self._send_reply("由于图像安全策略限制，无法处理这些图像。请尝试使用其他图片或修改提示词。", e_context)
+                    return
+
+            # 处理响应 - 支持多张图片和文本
+            edited_images = []
+            text_parts_content = []
+
+            if (hasattr(response, 'candidates') and response.candidates and
+                response.candidates[0].content and
+                hasattr(response.candidates[0].content, 'parts') and
+                response.candidates[0].content.parts):
                 
-                result = response.json()
-                if "data" in result and len(result["data"]) > 0:
-                    image_data = result["data"][0]
-                    if "b64_json" in image_data and image_data["b64_json"]:
-                        image_bytes = base64.b64decode(image_data["b64_json"])
-                        
-                        # 转换为base64格式发送，兼容飞书等平台
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        text_parts_content.append(part.text)
+                    
+                    if (hasattr(part, 'inline_data') and part.inline_data and 
+                        hasattr(part.inline_data, 'data') and part.inline_data.data):
+                        edited_images.append(part.inline_data.data)
+
+            # 发送响应
+            sent_something = False
+
+            # 发送文本部分（如果有）
+            if text_parts_content:
+                full_text_response = "\n".join(text_parts_content).strip()
+                self._send_reply(full_text_response, e_context)
+                sent_something = True
+
+            # 发送图片部分 - 支持多张图片
+            if edited_images:
+                logger.info(f"[Gemini多图编辑] 收到 {len(edited_images)} 张图片")
+                
+                # 如果有多张图片，先发送提示信息
+                if len(edited_images) > 1:
+                    tip = f"🖼️ Gemini多图编辑完成！共生成了 {len(edited_images)} 张图片，正在依次发送..."
+                    self._send_reply(tip, e_context)
+                else:
+                    self._send_reply("🖼️ 您的多图编辑已完成！", e_context)
+                
+                # 依次发送每张图片
+                for i, image_bytes in enumerate(edited_images, 1):
+                    try:
+                        # 转换为base64格式发送
                         image_b64 = base64.b64encode(image_bytes).decode()
                         data_url = f"data:image/png;base64,{image_b64}"
                         
-                        self._send_reply("🖼️ 您的多图编辑已完成！", e_context)
+                        # 如果是多张图片，为每张图片添加序号提示
+                        if len(edited_images) > 1:
+                            image_tip = f"📷 图片 {i}/{len(edited_images)}"
+                            self._send_reply(image_tip, e_context)
+                        
                         self._send_reply(data_url, e_context, ReplyType.IMAGE_URL)
-                    else:
-                        self._send_reply("多图编辑失败，API没有返回图片数据", e_context)
-                else:
-                    self._send_reply("多图编辑失败，API返回格式不正确", e_context)
-            finally:
-                # 关闭所有文件句柄
-                for file_handle in file_handles:
-                    try:
-                        file_handle.close()
-                    except:
-                        pass
+                        logger.info(f"[Gemini多图编辑] 第 {i} 张图片发送成功")
+                        
+                        # 在多张图片之间添加短暂延迟，避免消息过于密集
+                        if i < len(edited_images):
+                            time.sleep(0.5)
+                            
+                    except Exception as e:
+                        logger.error(f"[Gemini多图编辑] 发送第 {i} 张图片失败: {e}")
+                        self._send_reply(f"⚠️ 第 {i} 张图片发送失败: {str(e)}", e_context)
+                
+                sent_something = True
+                
+                # 发送完成提示
+                if len(edited_images) > 1:
+                    completion_tip = f"✅ 所有 {len(edited_images)} 张图片已发送完成！"
+                    self._send_reply(completion_tip, e_context)
+
+            if not sent_something:
+                self._send_reply("Gemini多图编辑失败，API没有返回可识别的内容。", e_context)
 
         except Exception as e:
-            logger.error(f"blend service exception: {e}")
-            self._send_reply(f"多图编辑服务出错: {str(e)}", e_context)
+            logger.error(f"Gemini多图编辑服务异常: {e}")
+            self._send_reply(f"Gemini多图编辑服务出错: {str(e)}", e_context)
         finally:
             # 清理临时图片文件
             for path in image_paths:
