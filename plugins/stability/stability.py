@@ -502,8 +502,6 @@ class stability(Plugin):
             
             tip = "💡已开启Sora2文生视频模式，将根据您的描述生成视频。"
             self._send_reply(tip, e_context)
-            notice = "您的文生视频的请求已经收到，请稍候..."
-            self._send_reply(notice, e_context)
             self._handle_text2video_async(user_prompt, e_context)
             return
 
@@ -1245,9 +1243,6 @@ class stability(Plugin):
 
     def _handle_img2video_async(self, image_path, prompt, e_context):
         """异步处理图生视频请求"""
-        notice = "您的图生视频请求已经收到，请稍候..."
-        self._send_reply(notice, e_context)
-        
         # 启动异步任务
         import threading
         thread = threading.Thread(target=self._handle_img2video_sync, args=(image_path, prompt, e_context))
