@@ -476,7 +476,7 @@ class stability(Plugin):
             self.waiting_blend.pop(key, None)
             self.waiting_fal_edit.pop(key, None)
             
-            tip = f"💡已开启kling2.1图生视频模式（kling2.1 image-to-video），您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt or '无'}"
+            tip = f"💡已开启Sora2图生视频模式，您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt or '无'}"
             reply = Reply(type=ReplyType.TEXT, content=tip)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -495,12 +495,12 @@ class stability(Plugin):
 
             user_prompt = content[len(self.fal_text_prefix):].strip()
             if not user_prompt:
-                tip = f"💡欢迎使用kling2.1文生视频，指令格式为:\n\n{self.fal_text_prefix}+ 空格 + 视频描述\n例如：{self.fal_text_prefix} 一只猫在草地上奔跑"
+                tip = f"💡欢迎使用Sora2文生视频，指令格式为:\n\n{self.fal_text_prefix}+ 空格 + 视频描述\n例如：{self.fal_text_prefix} 一只猫在草地上奔跑"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 return
             
-            tip = "💡已开启kling2.1文生视频模式（kling2.1 text-to-video），将根据您的描述生成视频。"
+            tip = "💡已开启Sora2文生视频模式，将根据您的描述生成视频。"
             self._send_reply(tip, e_context)
             notice = "您的文生视频的请求已经收到，请稍候..."
             self._send_reply(notice, e_context)
