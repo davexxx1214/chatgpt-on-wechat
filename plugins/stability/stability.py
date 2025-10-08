@@ -1390,99 +1390,60 @@ class stability(Plugin):
         thread.start()
 
     def _handle_text2video_sync(self, prompt, e_context):
-        """同步处理文生视频请求 - 使用Sora2模型"""
+        """同步处理文生视频请求 - 使用FAL Sora2模型"""
         logger.info(f"[text2video-sora2] 开始处理文生视频任务，提示词: {prompt}")
         
         try:
-            # 使用asyncdata.net API调用sora-2模型
-            conn = http.client.HTTPSConnection("asyncdata.net")
-            
-            payload = json.dumps({
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "model": "sora-2"
-            })
-            
-            headers = {
-                'Authorization': f'Bearer {self.veo3_api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            # 发送POST请求
-            conn.request("POST", "/tran/https://api.tu-zi.com/v1/chat/completions", payload, headers)
-            res = conn.getresponse()
-            data = res.read()
-            response_text = data.decode("utf-8")
-            conn.close()
-            
-            # 提取task_id
-            task_id = ""
-            task_match = re.search(r'task_[a-z0-9]{26}', response_text)
-            if task_match:
-                task_id = task_match.group(0)
-            
-            if not task_id:
-                logger.error("[text2video-sora2] 未能获取到task_id")
-                self._send_reply("视频生成请求失败，未获取到任务ID", e_context)
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                self._send_reply("FAL文生视频服务当前不可用，请检查FAL API配置", e_context)
                 return
             
-            logger.info(f"[text2video-sora2] 任务已提交，task_id: {task_id}")
+            # 使用fal_client调用sora-2/text-to-video模型
+            client = fal_client.SyncClient(key=self.fal_api_key)
+            
+            # 构建请求参数
+            request_data = {
+                "prompt": prompt,
+                "resolution": "720p",
+                "aspect_ratio": "16:9",
+                "duration": 8  # 8秒视频
+            }
+            
+            logger.info(f"[text2video-sora2] 提交FAL请求，参数: {request_data}")
             self._send_reply("视频生成任务已提交，正在处理中...", e_context)
             
-            # 轮询查询任务状态
-            max_retries = self.veo3_retry_times
-            interval = 10  # 10秒查询一次
+            # 调用fal-ai/sora-2/text-to-video模型
+            result = client.subscribe(
+                "fal-ai/sora-2/text-to-video",
+                arguments=request_data,
+                with_logs=True
+            )
             
-            for retry in range(1, max_retries + 1):
-                logger.info(f"[text2video-sora2] 查询任务状态 [{retry}/{max_retries}]")
-                time.sleep(interval)
-                
-                # 查询任务状态
-                conn = http.client.HTTPSConnection("asyncdata.net")
-                headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
-                conn.request("GET", f"/source/{task_id}", '', headers)
-                res = conn.getresponse()
-                data = res.read()
-                response_text = data.decode("utf-8")
-                conn.close()
-                
-                try:
-                    result_data = json.loads(response_text)
-                    status = result_data.get("status", "unknown")
-                    logger.info(f"[text2video-sora2] 任务状态: {status}")
-                    
-                    if status == "completed":
-                        # 获取视频URL
-                        video_url = result_data.get("url")
-                        if not video_url and "draft_info" in result_data:
-                            video_url = result_data["draft_info"].get("downloadable_url")
-                        
-                        if video_url:
-                            logger.info(f"[text2video-sora2] 视频生成成功: {video_url}")
-                            self._download_and_send_video(video_url, e_context, "文生视频-Sora2")
-                            return
-                        else:
-                            self._send_reply("视频生成完成但未找到视频URL", e_context)
-                            return
-                    
-                    elif status in ["failed", "error"]:
-                        error_msg = result_data.get("error", "未知错误")
-                        logger.error(f"[text2video-sora2] 视频生成失败: {error_msg}")
-                        self._send_reply(f"视频生成失败: {error_msg}", e_context)
-                        return
-                    
-                except Exception as e:
-                    logger.warning(f"[text2video-sora2] 解析响应异常: {e}")
+            logger.info(f"[text2video-sora2] API响应: {result}")
             
-            # 超过重试次数
-            self._send_reply(f"视频生成超时，已尝试{max_retries}次查询", e_context)
+            # 处理返回结果
+            video_url = None
+            if isinstance(result, dict):
+                # 检查多种可能的返回格式
+                if "video" in result:
+                    video_info = result["video"]
+                    if isinstance(video_info, dict) and "url" in video_info:
+                        video_url = video_info["url"]
+                    elif isinstance(video_info, str) and video_info.startswith("http"):
+                        video_url = video_info
+                elif "url" in result and result["url"].startswith("http"):
+                    video_url = result["url"]
+            
+            if video_url:
+                logger.info(f"[text2video-sora2] 视频生成成功: {video_url}")
+                self._download_and_send_video(video_url, e_context, "文生视频-Sora2")
+            else:
+                logger.error(f"[text2video-sora2] 未能从API响应中获取视频URL，完整响应: {result}")
+                self._send_reply("视频生成失败，API没有返回视频URL。", e_context)
             
         except Exception as e:
             logger.error(f"[text2video-sora2] 文生视频API调用异常: {e}")
+            logger.error(f"[text2video-sora2] 详细错误: {traceback.format_exc()}")
             self._send_reply(f"文生视频服务出错: {str(e)}", e_context)
 
     def _handle_veo3_video_async(self, prompt, e_context):
