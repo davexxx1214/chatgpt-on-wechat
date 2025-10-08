@@ -90,6 +90,9 @@ class stability(Plugin):
             # qwen配置
             self.qwen_prefix = self.config.get("qwen_prefix", "qwen")
             
+            # hunyuan配置
+            self.hunyuan_prefix = self.config.get("hunyuan_prefix", "hunyuan")
+            
             # 去背景配置
             self.rmbg_url = self.config.get("rmbg_url", "")
             self.rmbg_prefix = self.config.get("rmbg_prefix", "去背景")
@@ -310,6 +313,28 @@ class stability(Plugin):
                 self._call_qwen_service(qwen_prompt, e_context)
             else:
                 tip = f"💡欢迎使用qwen画图，指令格式为:\n\n{self.qwen_prefix}+ 空格 + 主题(支持中文)\n例如：{self.qwen_prefix} 画一只猫"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+            return
+
+        # 处理hunyuan指令
+        if content.startswith(self.hunyuan_prefix):
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                tip = "抱歉，hunyuan画图服务当前不可用，请联系管理员检查FAL API配置。"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+
+            pattern = self.hunyuan_prefix + r"\s(.+)"
+            match = re.match(pattern, content)
+            if match:
+                hunyuan_prompt = content[len(self.hunyuan_prefix):].strip()
+                logger.info(f"hunyuan_prompt = : {hunyuan_prompt}")
+                self._call_hunyuan_service(hunyuan_prompt, e_context)
+            else:
+                tip = f"💡欢迎使用hunyuan画图，指令格式为:\n\n{self.hunyuan_prefix}+ 空格 + 主题(支持中文)\n例如：{self.hunyuan_prefix} 一只可爱的猫咪"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -735,6 +760,68 @@ class stability(Plugin):
         except Exception as e:
             logger.error(f"qwen service exception: {e}")
             reply = Reply(ReplyType.TEXT, f"qwen服务出错: {str(e)}")
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+
+    def _call_hunyuan_service(self, hunyuan_prompt, e_context):
+        """调用hunyuan画图服务"""
+        logger.info(f"calling hunyuan service with prompt: {hunyuan_prompt}")
+
+        tip = f'欢迎使用hunyuan画图.\n💡图片正在生成中，请耐心等待。\n当前使用的提示词为：\n{hunyuan_prompt}'
+        self._send_reply(tip, e_context)
+
+        try:
+            # 使用fal_client调用hunyuan-image模型
+            client = fal_client.SyncClient(key=self.fal_api_key)
+            
+            # 构建请求参数
+            request_data = {
+                "prompt": hunyuan_prompt,
+                "image_size": "square_hd",
+                "num_inference_steps": 28,
+                "guidance_scale": 7.5,
+                "num_images": 1,
+                "enable_safety_checker": False,
+                "output_format": "png",
+                "enable_prompt_expansion": True
+            }
+            
+            # 调用fal-ai/hunyuan-image/v3/text-to-image模型
+            result = client.subscribe(
+                "fal-ai/hunyuan-image/v3/text-to-image",
+                arguments=request_data,
+                with_logs=True
+            )
+            
+            logger.info(f"[hunyuan] API响应: {result}")
+            
+            # 处理返回结果
+            if isinstance(result, dict) and "images" in result:
+                images = result.get("images", [])
+                if images and len(images) > 0:
+                    # 遍历所有生成的图片URL并发送
+                    for image_info in images:
+                        url = image_info.get('url')
+                        if url and url.startswith("http"):
+                            logger.info(f"hunyuan image url = {url}")
+                            self._send_reply(url, e_context, ReplyType.IMAGE_URL)
+                    
+                    reply = Reply(ReplyType.TEXT, "hunyuan图片生成完毕。")
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+                else:
+                    reply = Reply(ReplyType.TEXT, "hunyuan生成图片失败，未获取到图片URL")
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+            else:
+                logger.error(f"[hunyuan] API响应格式不正确: {result}")
+                reply = Reply(ReplyType.TEXT, f"hunyuan服务响应格式错误: {str(result)}")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                
+        except Exception as e:
+            logger.error(f"hunyuan service exception: {e}")
+            reply = Reply(ReplyType.TEXT, f"hunyuan服务出错: {str(e)}")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
