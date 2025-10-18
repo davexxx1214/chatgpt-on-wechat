@@ -116,6 +116,8 @@ class stability(Plugin):
             self.fal_edit_prefix = self.config.get("fal_edit_prefix", "/p")
             self.fal_img_prefix = self.config.get("fal_img_prefix", "图生视频")
             self.fal_text_prefix = self.config.get("fal_text_prefix", "文生视频")
+            self.fal_img_hd_prefix = self.config.get("fal_img_hd_prefix", "图生高清视频")
+            self.fal_text_hd_prefix = self.config.get("fal_text_hd_prefix", "文生高清视频")
             self.veo3_prefix = self.config.get("veo3_prefix", "veo3")
             
             self.fal_api_key = self.config.get("fal_api_key", "")
@@ -530,6 +532,57 @@ class stability(Plugin):
             self._handle_text2video_async(user_prompt, e_context)
             return
 
+        # 处理图生高清视频指令
+        if content.startswith(self.fal_img_hd_prefix):
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                tip = "抱歉，图生高清视频服务当前不可用，请联系管理员检查配置。"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+
+            user_prompt = content[len(self.fal_img_hd_prefix):].strip()
+            key = self.get_waiting_key(msg)
+            self.waiting_video[key] = {
+                "timestamp": time.time(),
+                "prompt": user_prompt,
+                "type": "img2video_hd"
+            }
+            # 清除其他状态
+            self.waiting_edit_image.pop(key, None)
+            self.waiting_inpaint_image.pop(key, None)
+            self.waiting_blend.pop(key, None)
+            self.waiting_fal_edit.pop(key, None)
+            
+            tip = f"💡已开启Sora2-Pro图生高清视频模式（25秒），您接下来第一张图片会生成高清视频。\n当前的提示词为：\n{user_prompt or '无'}"
+            reply = Reply(type=ReplyType.TEXT, content=tip)
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
+            return
+
+        # 处理文生高清视频指令
+        if content.startswith(self.fal_text_hd_prefix):
+            # 立即设置事件阻断，防止指令继续传播
+            e_context.action = EventAction.BREAK_PASS
+            
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                tip = "抱歉，文生高清视频服务当前不可用，请联系管理员检查配置。"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                return
+
+            user_prompt = content[len(self.fal_text_hd_prefix):].strip()
+            if not user_prompt:
+                tip = f"💡欢迎使用Sora2-Pro文生高清视频（25秒），指令格式为:\n\n{self.fal_text_hd_prefix}+ 空格 + 视频描述\n例如：{self.fal_text_hd_prefix} 一只猫在草地上奔跑"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                return
+            
+            tip = "💡已开启Sora2-Pro文生高清视频模式（25秒），将根据您的描述生成高清视频。"
+            self._send_reply(tip, e_context)
+            self._handle_text2video_hd_async(user_prompt, e_context)
+            return
+
         # 处理测试视频指令
         if content == "测试视频":
             # 立即设置事件阻断，防止指令继续传播
@@ -585,7 +638,7 @@ class stability(Plugin):
         has_inpaint_task = key in self.waiting_inpaint_image
         has_blend_task = key in self.waiting_blend
         has_fal_edit_task = key in self.waiting_fal_edit
-        has_video_task = key in self.waiting_video and self.waiting_video[key].get("type") == "img2video"
+        has_video_task = key in self.waiting_video and self.waiting_video[key].get("type") in ["img2video", "img2video_hd"]
         
         if not (has_rmbg_task or has_edit_task or has_inpaint_task or has_blend_task or has_fal_edit_task or has_video_task):
             logger.debug("stability: 当前用户无待处理任务，跳过")
@@ -630,7 +683,11 @@ class stability(Plugin):
         elif has_video_task:
             waiting_info = self.waiting_video[key]
             prompt = waiting_info.get("prompt", "")
-            self._handle_img2video_async(image_path, prompt, e_context)
+            video_type = waiting_info.get("type", "img2video")
+            if video_type == "img2video_hd":
+                self._handle_img2video_hd_async(image_path, prompt, e_context)
+            else:
+                self._handle_img2video_async(image_path, prompt, e_context)
             self.waiting_video.pop(key, None)
             delete_file_immediately = False  # 异步任务会处理文件删除
         elif has_blend_task:
@@ -1650,6 +1707,329 @@ class stability(Plugin):
             import traceback
             logger.error(traceback.format_exc())
             self._send_reply(f"文生视频服务出错: {str(e)}", e_context)
+
+    def _handle_img2video_hd_async(self, image_path, prompt, e_context):
+        """异步处理图生高清视频请求"""
+        # 启动异步任务
+        import threading
+        thread = threading.Thread(target=self._handle_img2video_hd_sync, args=(image_path, prompt, e_context))
+        thread.start()
+
+    def _handle_img2video_hd_sync(self, image_path, prompt, e_context):
+        """同步处理图生高清视频请求 - 使用Sora2-Pro模型，25秒"""
+        logger.info(f"[img2video-sora2-pro] 开始处理图生高清视频任务，提示词: {prompt}")
+        
+        try:
+            import mimetypes
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+            from email.mime.base import MIMEBase
+            from email import encoders
+            import uuid
+            
+            # 读取图片文件
+            with open(image_path, 'rb') as img_file:
+                image_data = img_file.read()
+            
+            logger.info(f"[img2video-sora2-pro] 图片已读取，大小: {len(image_data)} 字节")
+            
+            # 构建multipart/form-data请求
+            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
+            
+            # 构建form-data body
+            body_parts = []
+            
+            # 添加model字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="model"')
+            body_parts.append('')
+            body_parts.append('sora-2-pro')
+            
+            # 添加prompt字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="prompt"')
+            body_parts.append('')
+            body_parts.append(prompt if prompt else "根据这张图片生成一个动态视频")
+            
+            # 添加size字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="size"')
+            body_parts.append('')
+            body_parts.append('1280x720')
+            
+            # 添加seconds字段（25秒）
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="seconds"')
+            body_parts.append('')
+            body_parts.append('25')
+            
+            # 添加watermark字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="watermark"')
+            body_parts.append('')
+            body_parts.append('')
+            
+            # 添加图片文件
+            filename = os.path.basename(image_path)
+            ext = os.path.splitext(image_path)[1].lower()
+            mime_types = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }
+            content_type = mime_types.get(ext, 'image/jpeg')
+            
+            body_parts.append(f'--{boundary}')
+            body_parts.append(f'Content-Disposition: form-data; name="input_reference"; filename="{filename}"')
+            body_parts.append(f'Content-Type: {content_type}')
+            body_parts.append('')
+            
+            # 将文本部分组合
+            body_text = '\r\n'.join(body_parts) + '\r\n'
+            
+            # 构建完整的body（文本 + 二进制图片数据 + 结束边界）
+            body = body_text.encode('utf-8') + image_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+            
+            # 发送请求到 api.tu-zi.com
+            conn = http.client.HTTPSConnection("api.tu-zi.com")
+            
+            headers = {
+                'Authorization': f'Bearer {self.veo3_api_key}',
+                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Length': str(len(body))
+            }
+            
+            # 发送POST请求
+            conn.request("POST", "/v1/videos", body, headers)
+            res = conn.getresponse()
+            data = res.read()
+            response_text = data.decode("utf-8")
+            conn.close()
+            
+            logger.info(f"[img2video-sora2-pro] API响应状态: {res.status}, 内容: {response_text[:500]}")
+            
+            # 解析响应获取task_id
+            task_id = ""
+            try:
+                result = json.loads(response_text)
+                task_id = result.get("id", "")
+                logger.info(f"[img2video-sora2-pro] 解析到的task_id: {task_id}")
+            except Exception as e:
+                logger.error(f"[img2video-sora2-pro] 解析响应失败: {e}")
+            
+            if not task_id:
+                logger.error(f"[img2video-sora2-pro] 未能获取到task_id，响应: {response_text}")
+                self._send_reply(f"图生高清视频请求失败: {response_text[:200]}", e_context)
+                return
+            
+            logger.info(f"[img2video-sora2-pro] 任务已提交，task_id: {task_id}")
+            self._send_reply("图生高清视频任务已提交（Sora2-Pro 25秒），正在处理中...", e_context)
+            
+            # 轮询查询任务状态
+            max_retries = self.veo3_retry_times
+            interval = 10  # 10秒查询一次
+            
+            for retry in range(1, max_retries + 1):
+                logger.info(f"[img2video-sora2-pro] 查询任务状态 [{retry}/{max_retries}]")
+                time.sleep(interval)
+                
+                # 查询任务状态
+                conn = http.client.HTTPSConnection("api.tu-zi.com")
+                headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
+                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
+                res = conn.getresponse()
+                data = res.read()
+                response_text = data.decode("utf-8")
+                conn.close()
+                
+                try:
+                    result_data = json.loads(response_text)
+                    status = result_data.get("status", "unknown")
+                    logger.info(f"[img2video-sora2-pro] 任务状态: {status}, 响应: {response_text[:500]}")
+                    
+                    if status == "completed":
+                        # 获取视频URL
+                        video_url = result_data.get("video_url")
+                        
+                        if video_url:
+                            logger.info(f"[img2video-sora2-pro] 视频生成成功: {video_url}")
+                            self._download_and_send_video(video_url, e_context, "图生高清视频-Sora2-Pro")
+                            return
+                        else:
+                            self._send_reply("图生高清视频完成但未找到视频URL", e_context)
+                            return
+                    
+                    elif status in ["failed", "error"]:
+                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
+                        logger.error(f"[img2video-sora2-pro] 视频生成失败: {error_msg}")
+                        self._send_reply(f"图生高清视频失败: {error_msg}", e_context)
+                        return
+                    
+                except Exception as e:
+                    logger.warning(f"[img2video-sora2-pro] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
+            
+            # 超过重试次数
+            self._send_reply(f"图生高清视频超时，已尝试{max_retries}次查询", e_context)
+            
+        except Exception as e:
+            logger.error(f"[img2video-sora2-pro] 图生高清视频API调用异常: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self._send_reply(f"图生高清视频服务出错: {str(e)}", e_context)
+        finally:
+            # 删除原始图片文件
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    logger.info(f"原始图片文件已删除: {image_path}")
+            except Exception as e:
+                logger.error(f"删除原始图片文件失败: {image_path}, error: {e}")
+
+    def _handle_text2video_hd_async(self, prompt, e_context):
+        """异步处理文生高清视频请求"""
+        # 启动异步任务
+        import threading
+        thread = threading.Thread(target=self._handle_text2video_hd_sync, args=(prompt, e_context))
+        thread.start()
+
+    def _handle_text2video_hd_sync(self, prompt, e_context):
+        """同步处理文生高清视频请求 - 使用Sora2-Pro模型，25秒"""
+        logger.info(f"[text2video-sora2-pro] 开始处理文生高清视频任务，提示词: {prompt}")
+        
+        try:
+            import uuid
+            
+            # 构建multipart/form-data请求
+            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
+            
+            # 构建form-data body
+            body_parts = []
+            
+            # 添加model字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="model"')
+            body_parts.append('')
+            body_parts.append('sora-2-pro')
+            
+            # 添加prompt字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="prompt"')
+            body_parts.append('')
+            body_parts.append(prompt)
+            
+            # 添加size字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="size"')
+            body_parts.append('')
+            body_parts.append('1280x720')
+            
+            # 添加seconds字段（25秒）
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="seconds"')
+            body_parts.append('')
+            body_parts.append('25')
+            
+            # 添加watermark字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="watermark"')
+            body_parts.append('')
+            body_parts.append('')
+            
+            # 结束边界
+            body_parts.append(f'--{boundary}--')
+            body_parts.append('')
+            
+            # 组合body
+            body = '\r\n'.join(body_parts)
+            
+            # 发送请求到 api.tu-zi.com
+            conn = http.client.HTTPSConnection("api.tu-zi.com")
+            
+            headers = {
+                'Authorization': f'Bearer {self.veo3_api_key}',
+                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Length': str(len(body))
+            }
+            
+            # 发送POST请求
+            conn.request("POST", "/v1/videos", body.encode('utf-8'), headers)
+            res = conn.getresponse()
+            data = res.read()
+            response_text = data.decode("utf-8")
+            conn.close()
+            
+            logger.info(f"[text2video-sora2-pro] API响应状态: {res.status}, 内容: {response_text[:500]}")
+            
+            # 解析响应获取task_id
+            task_id = ""
+            try:
+                result = json.loads(response_text)
+                task_id = result.get("id", "")
+                logger.info(f"[text2video-sora2-pro] 解析到的task_id: {task_id}")
+            except Exception as e:
+                logger.error(f"[text2video-sora2-pro] 解析响应失败: {e}")
+            
+            if not task_id:
+                logger.error(f"[text2video-sora2-pro] 未能获取到task_id，响应: {response_text}")
+                self._send_reply(f"文生高清视频请求失败: {response_text[:200]}", e_context)
+                return
+            
+            logger.info(f"[text2video-sora2-pro] 任务已提交，task_id: {task_id}")
+            self._send_reply("文生高清视频任务已提交（Sora2-Pro 25秒），正在处理中...", e_context)
+            
+            # 轮询查询任务状态
+            max_retries = self.veo3_retry_times
+            interval = 10  # 10秒查询一次
+            
+            for retry in range(1, max_retries + 1):
+                logger.info(f"[text2video-sora2-pro] 查询任务状态 [{retry}/{max_retries}]")
+                time.sleep(interval)
+                
+                # 查询任务状态
+                conn = http.client.HTTPSConnection("api.tu-zi.com")
+                headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
+                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
+                res = conn.getresponse()
+                data = res.read()
+                response_text = data.decode("utf-8")
+                conn.close()
+                
+                try:
+                    result_data = json.loads(response_text)
+                    status = result_data.get("status", "unknown")
+                    logger.info(f"[text2video-sora2-pro] 任务状态: {status}, 响应: {response_text[:500]}")
+                    
+                    if status == "completed":
+                        # 获取视频URL
+                        video_url = result_data.get("video_url")
+                        
+                        if video_url:
+                            logger.info(f"[text2video-sora2-pro] 视频生成成功: {video_url}")
+                            self._download_and_send_video(video_url, e_context, "文生高清视频-Sora2-Pro")
+                            return
+                        else:
+                            self._send_reply("文生高清视频完成但未找到视频URL", e_context)
+                            return
+                    
+                    elif status in ["failed", "error"]:
+                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
+                        logger.error(f"[text2video-sora2-pro] 视频生成失败: {error_msg}")
+                        self._send_reply(f"文生高清视频失败: {error_msg}", e_context)
+                        return
+                    
+                except Exception as e:
+                    logger.warning(f"[text2video-sora2-pro] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
+            
+            # 超过重试次数
+            self._send_reply(f"文生高清视频超时，已尝试{max_retries}次查询", e_context)
+            
+        except Exception as e:
+            logger.error(f"[text2video-sora2-pro] 文生高清视频API调用异常: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self._send_reply(f"文生高清视频服务出错: {str(e)}", e_context)
 
     def _handle_veo3_video_async(self, prompt, e_context):
         """异步处理veo3视频生成请求"""
