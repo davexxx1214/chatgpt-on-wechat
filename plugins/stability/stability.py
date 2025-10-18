@@ -1340,70 +1340,108 @@ class stability(Plugin):
         logger.info(f"[img2video-sora2] 开始处理图生视频任务，提示词: {prompt}")
         
         try:
-            # 读取图片文件并转换为base64
+            import mimetypes
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+            from email.mime.base import MIMEBase
+            from email import encoders
+            import uuid
+            
+            # 读取图片文件
             with open(image_path, 'rb') as img_file:
                 image_data = img_file.read()
-                base64_data = base64.b64encode(image_data).decode('utf-8')
-                
-                # 根据文件扩展名确定MIME类型
-                ext = os.path.splitext(image_path)[1].lower()
-                mime_types = {
-                    '.png': 'image/png',
-                    '.jpg': 'image/jpeg',
-                    '.jpeg': 'image/jpeg',
-                    '.gif': 'image/gif',
-                    '.webp': 'image/webp'
-                }
-                mime_type = mime_types.get(ext, 'image/png')
-                image_base64 = f"data:{mime_type};base64,{base64_data}"
             
-            logger.info(f"[img2video-sora2] 图片已转换为base64，大小: {len(image_base64)} 字符")
+            logger.info(f"[img2video-sora2] 图片已读取，大小: {len(image_data)} 字节")
             
-            # 使用asyncdata.net API调用sora-2模型
-            conn = http.client.HTTPSConnection("asyncdata.net")
+            # 构建multipart/form-data请求
+            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
             
-            payload = json.dumps({
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": prompt if prompt else "根据这张图片生成一个动态视频"
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": image_base64
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "model": "sora-2"
-            })
+            # 构建form-data body
+            body_parts = []
+            
+            # 添加model字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="model"')
+            body_parts.append('')
+            body_parts.append('sora-2')
+            
+            # 添加prompt字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="prompt"')
+            body_parts.append('')
+            body_parts.append(prompt if prompt else "根据这张图片生成一个动态视频")
+            
+            # 添加size字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="size"')
+            body_parts.append('')
+            body_parts.append('1280x720')
+            
+            # 添加seconds字段（空字符串表示使用默认值）
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="seconds"')
+            body_parts.append('')
+            body_parts.append('')
+            
+            # 添加watermark字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="watermark"')
+            body_parts.append('')
+            body_parts.append('')
+            
+            # 添加图片文件
+            filename = os.path.basename(image_path)
+            ext = os.path.splitext(image_path)[1].lower()
+            mime_types = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }
+            content_type = mime_types.get(ext, 'image/jpeg')
+            
+            body_parts.append(f'--{boundary}')
+            body_parts.append(f'Content-Disposition: form-data; name="input_reference"; filename="{filename}"')
+            body_parts.append(f'Content-Type: {content_type}')
+            body_parts.append('')
+            
+            # 将文本部分组合
+            body_text = '\r\n'.join(body_parts) + '\r\n'
+            
+            # 构建完整的body（文本 + 二进制图片数据 + 结束边界）
+            body = body_text.encode('utf-8') + image_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+            
+            # 发送请求到 api.tu-zi.com
+            conn = http.client.HTTPSConnection("api.tu-zi.com")
             
             headers = {
                 'Authorization': f'Bearer {self.veo3_api_key}',
-                'Content-Type': 'application/json'
+                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Length': str(len(body))
             }
             
             # 发送POST请求
-            conn.request("POST", "/tran/https://api.tu-zi.com/v1/chat/completions", payload, headers)
+            conn.request("POST", "/v1/videos", body, headers)
             res = conn.getresponse()
             data = res.read()
             response_text = data.decode("utf-8")
             conn.close()
             
-            # 提取task_id
+            logger.info(f"[img2video-sora2] API响应状态: {res.status}, 内容: {response_text[:500]}")
+            
+            # 解析响应获取task_id
             task_id = ""
-            task_match = re.search(r'task_[a-z0-9]{26}', response_text)
-            if task_match:
-                task_id = task_match.group(0)
+            try:
+                result = json.loads(response_text)
+                task_id = result.get("id", "")
+                logger.info(f"[img2video-sora2] 解析到的task_id: {task_id}")
+            except Exception as e:
+                logger.error(f"[img2video-sora2] 解析响应失败: {e}")
             
             if not task_id:
-                logger.error("[img2video-sora2] 未能获取到task_id")
-                self._send_reply("图生视频请求失败，未获取到任务ID", e_context)
+                logger.error(f"[img2video-sora2] 未能获取到task_id，响应: {response_text}")
+                self._send_reply(f"图生视频请求失败: {response_text[:200]}", e_context)
                 return
             
             logger.info(f"[img2video-sora2] 任务已提交，task_id: {task_id}")
@@ -1418,9 +1456,9 @@ class stability(Plugin):
                 time.sleep(interval)
                 
                 # 查询任务状态
-                conn = http.client.HTTPSConnection("asyncdata.net")
+                conn = http.client.HTTPSConnection("api.tu-zi.com")
                 headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
-                conn.request("GET", f"/source/{task_id}", '', headers)
+                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
                 res = conn.getresponse()
                 data = res.read()
                 response_text = data.decode("utf-8")
@@ -1429,13 +1467,11 @@ class stability(Plugin):
                 try:
                     result_data = json.loads(response_text)
                     status = result_data.get("status", "unknown")
-                    logger.info(f"[img2video-sora2] 任务状态: {status}")
+                    logger.info(f"[img2video-sora2] 任务状态: {status}, 响应: {response_text[:500]}")
                     
                     if status == "completed":
                         # 获取视频URL
-                        video_url = result_data.get("url")
-                        if not video_url and "draft_info" in result_data:
-                            video_url = result_data["draft_info"].get("downloadable_url")
+                        video_url = result_data.get("video_url")
                         
                         if video_url:
                             logger.info(f"[img2video-sora2] 视频生成成功: {video_url}")
@@ -1446,19 +1482,21 @@ class stability(Plugin):
                             return
                     
                     elif status in ["failed", "error"]:
-                        error_msg = result_data.get("error", "未知错误")
+                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
                         logger.error(f"[img2video-sora2] 视频生成失败: {error_msg}")
                         self._send_reply(f"图生视频失败: {error_msg}", e_context)
                         return
                     
                 except Exception as e:
-                    logger.warning(f"[img2video-sora2] 解析响应异常: {e}")
+                    logger.warning(f"[img2video-sora2] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
             
             # 超过重试次数
             self._send_reply(f"图生视频超时，已尝试{max_retries}次查询", e_context)
             
         except Exception as e:
             logger.error(f"[img2video-sora2] 图生视频API调用异常: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             self._send_reply(f"图生视频服务出错: {str(e)}", e_context)
         finally:
             # 删除原始图片文件
@@ -1481,40 +1519,81 @@ class stability(Plugin):
         logger.info(f"[text2video-sora2] 开始处理文生视频任务，提示词: {prompt}")
         
         try:
-            # 使用asyncdata.net API调用sora-2模型
-            conn = http.client.HTTPSConnection("asyncdata.net")
+            import uuid
             
-            payload = json.dumps({
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "model": "sora-2"
-            })
+            # 构建multipart/form-data请求
+            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
+            
+            # 构建form-data body
+            body_parts = []
+            
+            # 添加model字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="model"')
+            body_parts.append('')
+            body_parts.append('sora-2')
+            
+            # 添加prompt字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="prompt"')
+            body_parts.append('')
+            body_parts.append(prompt)
+            
+            # 添加size字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="size"')
+            body_parts.append('')
+            body_parts.append('1280x720')
+            
+            # 添加seconds字段（空字符串表示使用默认值）
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="seconds"')
+            body_parts.append('')
+            body_parts.append('')
+            
+            # 添加watermark字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="watermark"')
+            body_parts.append('')
+            body_parts.append('')
+            
+            # 结束边界
+            body_parts.append(f'--{boundary}--')
+            body_parts.append('')
+            
+            # 组合body
+            body = '\r\n'.join(body_parts)
+            
+            # 发送请求到 api.tu-zi.com
+            conn = http.client.HTTPSConnection("api.tu-zi.com")
             
             headers = {
                 'Authorization': f'Bearer {self.veo3_api_key}',
-                'Content-Type': 'application/json'
+                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Length': str(len(body))
             }
             
             # 发送POST请求
-            conn.request("POST", "/tran/https://api.tu-zi.com/v1/chat/completions", payload, headers)
+            conn.request("POST", "/v1/videos", body.encode('utf-8'), headers)
             res = conn.getresponse()
             data = res.read()
             response_text = data.decode("utf-8")
             conn.close()
             
-            # 提取task_id
+            logger.info(f"[text2video-sora2] API响应状态: {res.status}, 内容: {response_text[:500]}")
+            
+            # 解析响应获取task_id
             task_id = ""
-            task_match = re.search(r'task_[a-z0-9]{26}', response_text)
-            if task_match:
-                task_id = task_match.group(0)
+            try:
+                result = json.loads(response_text)
+                task_id = result.get("id", "")
+                logger.info(f"[text2video-sora2] 解析到的task_id: {task_id}")
+            except Exception as e:
+                logger.error(f"[text2video-sora2] 解析响应失败: {e}")
             
             if not task_id:
-                logger.error("[text2video-sora2] 未能获取到task_id")
-                self._send_reply("视频生成请求失败，未获取到任务ID", e_context)
+                logger.error(f"[text2video-sora2] 未能获取到task_id，响应: {response_text}")
+                self._send_reply(f"视频生成请求失败: {response_text[:200]}", e_context)
                 return
             
             logger.info(f"[text2video-sora2] 任务已提交，task_id: {task_id}")
@@ -1529,9 +1608,9 @@ class stability(Plugin):
                 time.sleep(interval)
                 
                 # 查询任务状态
-                conn = http.client.HTTPSConnection("asyncdata.net")
+                conn = http.client.HTTPSConnection("api.tu-zi.com")
                 headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
-                conn.request("GET", f"/source/{task_id}", '', headers)
+                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
                 res = conn.getresponse()
                 data = res.read()
                 response_text = data.decode("utf-8")
@@ -1540,13 +1619,11 @@ class stability(Plugin):
                 try:
                     result_data = json.loads(response_text)
                     status = result_data.get("status", "unknown")
-                    logger.info(f"[text2video-sora2] 任务状态: {status}")
+                    logger.info(f"[text2video-sora2] 任务状态: {status}, 响应: {response_text[:500]}")
                     
                     if status == "completed":
                         # 获取视频URL
-                        video_url = result_data.get("url")
-                        if not video_url and "draft_info" in result_data:
-                            video_url = result_data["draft_info"].get("downloadable_url")
+                        video_url = result_data.get("video_url")
                         
                         if video_url:
                             logger.info(f"[text2video-sora2] 视频生成成功: {video_url}")
@@ -1557,19 +1634,21 @@ class stability(Plugin):
                             return
                     
                     elif status in ["failed", "error"]:
-                        error_msg = result_data.get("error", "未知错误")
+                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
                         logger.error(f"[text2video-sora2] 视频生成失败: {error_msg}")
                         self._send_reply(f"视频生成失败: {error_msg}", e_context)
                         return
                     
                 except Exception as e:
-                    logger.warning(f"[text2video-sora2] 解析响应异常: {e}")
+                    logger.warning(f"[text2video-sora2] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
             
             # 超过重试次数
             self._send_reply(f"视频生成超时，已尝试{max_retries}次查询", e_context)
             
         except Exception as e:
             logger.error(f"[text2video-sora2] 文生视频API调用异常: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             self._send_reply(f"文生视频服务出错: {str(e)}", e_context)
 
     def _handle_veo3_video_async(self, prompt, e_context):
