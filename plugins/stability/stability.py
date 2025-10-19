@@ -52,8 +52,8 @@ except ImportError:
 @plugins.register(
     name="stability",
     desire_priority=2,
-    desc="A plugin with jimeng, remove background, edit image, inpaint, multi-image blend, fal edit, video generation features",
-    version="2.1.1",
+    desc="A plugin with seedream v4, qwen, hunyuan, remove background, edit image, inpaint, multi-image blend, fal edit, video generation features",
+    version="2.2.0",
     author="davexxx",
 )
 
@@ -283,19 +283,25 @@ class stability(Plugin):
         """处理文本消息"""
         msg: ChatMessage = e_context["context"]["msg"]
         
-        # 处理jimeng指令
+        # 处理jimeng指令（使用Seedream v4）
         if content.startswith(self.jimeng_prefix):
-            pattern = self.jimeng_prefix + r"\s(.+)"
-            match = re.match(pattern, content)
-            if match:
-                jimeng_prompt = content[len(self.jimeng_prefix):].strip()
-                logger.info(f"jimeng_prompt = : {jimeng_prompt}")
-                self._call_jimeng_service(jimeng_prompt, e_context)
-            else:
-                tip = f"💡欢迎使用即梦AI绘图，指令格式为:\n\n{self.jimeng_prefix}+ 空格 + 主题(支持中文)\n例如：{self.jimeng_prefix} 一只可爱的猫"
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                tip = "抱歉，Seedream v4画图服务当前不可用，请联系管理员检查FAL API配置。"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
+                return
+
+            jimeng_prompt = content[len(self.jimeng_prefix):].strip()
+            if not jimeng_prompt:
+                tip = f"💡欢迎使用Seedream v4画图，指令格式为:\n\n{self.jimeng_prefix} + 空格 + 主题(支持中文)\n例如：{self.jimeng_prefix} 一只可爱的猫"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+            
+            logger.info(f"seedream_v4_prompt = : {jimeng_prompt}")
+            self._call_jimeng_service(jimeng_prompt, e_context)
             return
 
         # 处理qwen指令
@@ -741,48 +747,70 @@ class stability(Plugin):
                 logger.error(f"删除文件失败: {e}")
 
     def _call_jimeng_service(self, jimeng_prompt, e_context):
-        """调用即梦AI服务"""
-        logger.info(f"calling jimeng service with prompt: {jimeng_prompt}")
+        """调用Bytedance Seedream v4文生图服务"""
+        logger.info(f"calling seedream v4 service with prompt: {jimeng_prompt}")
 
-        tip = f'欢迎使用即梦AI.\n💡图片正在生成中，请耐心等待。\n当前使用的提示词为：\n{jimeng_prompt}'
+        tip = f'欢迎使用Seedream v4画图.\n💡图片正在生成中，请耐心等待。\n当前使用的提示词为：\n{jimeng_prompt}'
         self._send_reply(tip, e_context)
 
         try:
-            response = requests.post(
-                f"{self.jimeng_url}/v1/images/generations",
-                headers={
-                    "Authorization": f"Bearer {self.jimeng_api_key}"
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                reply = Reply(ReplyType.TEXT, "抱歉，Seedream v4画图服务当前不可用，请联系管理员检查FAL API配置。")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+            
+            # 使用fal_client调用seedream v4模型
+            client = fal_client.SyncClient(key=self.fal_api_key)
+            
+            # 构建请求参数
+            request_data = {
+                "prompt": jimeng_prompt,
+                "image_size": {
+                    "height": 2048,
+                    "width": 2048
                 },
-                json={"prompt": f"{jimeng_prompt}"},
-                timeout=self.jimeng_timeout
+                "num_images": 1,
+                "max_images": 1,
+                "enable_safety_checker": False
+            }
+            
+            # 调用fal-ai/bytedance/seedream/v4/text-to-image模型
+            result = client.subscribe(
+                "fal-ai/bytedance/seedream/v4/text-to-image",
+                arguments=request_data,
+                with_logs=True
             )
-
-            if response.status_code == 200:
-                response_data = response.json()
-                data_list = response_data.get('data', [])
-                if data_list:
+            
+            logger.info(f"[seedream-v4] API响应: {result}")
+            
+            # 处理返回结果
+            if isinstance(result, dict) and "images" in result:
+                images = result.get("images", [])
+                if images and len(images) > 0:
                     # 遍历所有生成的图片URL并发送
-                    for item in data_list:
-                        url = item.get('url')
-                        if url:
-                            logger.info("jimeng image url = " + url)
+                    for image_info in images:
+                        url = image_info.get('url')
+                        if url and url.startswith("http"):
+                            logger.info(f"seedream v4 image url = {url}")
                             self._send_reply(url, e_context, ReplyType.IMAGE_URL)
                     
-                    reply = Reply(ReplyType.TEXT, "即梦图片生成完毕。")
+                    reply = Reply(ReplyType.TEXT, "Seedream v4图片生成完毕。")
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
                 else:
-                    reply = Reply(ReplyType.TEXT, "jimeng生成图片失败~")
+                    reply = Reply(ReplyType.TEXT, "Seedream v4生成图片失败，未获取到图片URL")
                     e_context["reply"] = reply
                     e_context.action = EventAction.BREAK_PASS
             else:
-                error = str(response.json())
-                reply = Reply(ReplyType.TEXT, error)
+                logger.error(f"[seedream-v4] API响应格式不正确: {result}")
+                reply = Reply(ReplyType.TEXT, f"Seedream v4服务响应格式错误: {str(result)}")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
+                
         except Exception as e:
-            logger.error(f"jimeng service exception: {e}")
-            reply = Reply(ReplyType.TEXT, f"即梦服务出错: {str(e)}")
+            logger.error(f"seedream v4 service exception: {e}")
+            reply = Reply(ReplyType.TEXT, f"Seedream v4服务出错: {str(e)}")
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
