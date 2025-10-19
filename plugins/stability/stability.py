@@ -491,6 +491,13 @@ class stability(Plugin):
                 return
 
             user_prompt = content[len(self.fal_img_prefix):].strip()
+            if not user_prompt:
+                tip = f"欢迎使用Sora2图生视频！\n正确的指令格式是：{self.fal_img_prefix} + 空格 + 视频描述提示词\n\n例如：\n{self.fal_img_prefix} 让猫咪在草地上奔跑\n{self.fal_img_prefix} 人物向前走动，背景模糊"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+            
             key = self.get_waiting_key(msg)
             self.waiting_video[key] = {
                 "timestamp": time.time(),
@@ -503,7 +510,7 @@ class stability(Plugin):
             self.waiting_blend.pop(key, None)
             self.waiting_fal_edit.pop(key, None)
             
-            tip = f"💡已开启Sora2图生视频模式，您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt or '无'}"
+            tip = f"💡已开启Sora2图生视频模式，您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt}"
             reply = Reply(type=ReplyType.TEXT, content=tip)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -542,6 +549,13 @@ class stability(Plugin):
                 return
 
             user_prompt = content[len(self.fal_img_hd_prefix):].strip()
+            if not user_prompt:
+                tip = f"欢迎使用Sora2-Pro图生高清视频（25秒）！\n正确的指令格式是：{self.fal_img_hd_prefix} + 空格 + 视频描述提示词\n\n例如：\n{self.fal_img_hd_prefix} 让画面动起来，云朵飘动\n{self.fal_img_hd_prefix} 人物转身微笑，镜头推进"
+                reply = Reply(type=ReplyType.TEXT, content=tip)
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+            
             key = self.get_waiting_key(msg)
             self.waiting_video[key] = {
                 "timestamp": time.time(),
@@ -554,7 +568,7 @@ class stability(Plugin):
             self.waiting_blend.pop(key, None)
             self.waiting_fal_edit.pop(key, None)
             
-            tip = f"💡已开启Sora2-Pro图生高清视频模式（25秒），您接下来第一张图片会生成高清视频。\n当前的提示词为：\n{user_prompt or '无'}"
+            tip = f"💡已开启Sora2-Pro图生高清视频模式（25秒），您接下来第一张图片会生成高清视频。\n当前的提示词为：\n{user_prompt}"
             reply = Reply(type=ReplyType.TEXT, content=tip)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -603,27 +617,39 @@ class stability(Plugin):
                 self._send_reply(tip, e_context)
             return
 
-        # 处理veo3视频生成指令
+        # 处理veo3图生视频指令
         if content.startswith(self.veo3_prefix):
-            # 立即设置事件阻断，防止指令继续传播
-            e_context.action = EventAction.BREAK_PASS
-            
-            if not self.veo3_api_key or not self.veo3_api_base:
-                tip = "抱歉，veo3视频生成服务当前不可用，请联系管理员检查veo3 API配置。"
+            if not self.veo3_api_key:
+                tip = "抱歉，veo3图生视频服务当前不可用，请联系管理员检查veo3 API配置。"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
                 return
 
             user_prompt = content[len(self.veo3_prefix):].strip()
             if not user_prompt:
-                tip = f"💡欢迎使用veo3视频生成，指令格式为:\n\n{self.veo3_prefix} + 空格 + 视频描述（支持中文）\n例如：{self.veo3_prefix} 一个宇航员在月球上跳舞"
+                tip = f"欢迎使用veo3图生视频！\n正确的指令格式是：{self.veo3_prefix} + 空格 + 视频描述提示词\n\n例如：\n{self.veo3_prefix} 图像中的人物跑起来\n{self.veo3_prefix} 让画面动起来，背景飘雪"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
                 return
             
-            tip = f"💡已开启veo3视频生成模式，将根据您的描述生成视频。\n当前的提示词为：\n{user_prompt or '无'}"
-            self._send_reply(tip, e_context)
-            self._handle_veo3_video_async(user_prompt, e_context)
+            key = self.get_waiting_key(msg)
+            self.waiting_video[key] = {
+                "timestamp": time.time(),
+                "prompt": user_prompt,
+                "type": "veo3_img2video"
+            }
+            # 清除其他状态
+            self.waiting_edit_image.pop(key, None)
+            self.waiting_inpaint_image.pop(key, None)
+            self.waiting_blend.pop(key, None)
+            self.waiting_fal_edit.pop(key, None)
+            
+            tip = f"💡已开启veo3图生视频模式（8秒），您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt}"
+            reply = Reply(type=ReplyType.TEXT, content=tip)
+            e_context["reply"] = reply
+            e_context.action = EventAction.BREAK_PASS
             return
 
     def _handle_image_message(self, e_context: EventContext, user_id: str):
@@ -638,7 +664,7 @@ class stability(Plugin):
         has_inpaint_task = key in self.waiting_inpaint_image
         has_blend_task = key in self.waiting_blend
         has_fal_edit_task = key in self.waiting_fal_edit
-        has_video_task = key in self.waiting_video and self.waiting_video[key].get("type") in ["img2video", "img2video_hd"]
+        has_video_task = key in self.waiting_video and self.waiting_video[key].get("type") in ["img2video", "img2video_hd", "veo3_img2video"]
         
         if not (has_rmbg_task or has_edit_task or has_inpaint_task or has_blend_task or has_fal_edit_task or has_video_task):
             logger.debug("stability: 当前用户无待处理任务，跳过")
@@ -686,6 +712,8 @@ class stability(Plugin):
             video_type = waiting_info.get("type", "img2video")
             if video_type == "img2video_hd":
                 self._handle_img2video_hd_async(image_path, prompt, e_context)
+            elif video_type == "veo3_img2video":
+                self._handle_veo3_img2video_async(image_path, prompt, e_context)
             else:
                 self._handle_img2video_async(image_path, prompt, e_context)
             self.waiting_video.pop(key, None)
@@ -2031,84 +2059,179 @@ class stability(Plugin):
             logger.error(traceback.format_exc())
             self._send_reply(f"文生高清视频服务出错: {str(e)}", e_context)
 
-    def _handle_veo3_video_async(self, prompt, e_context):
-        """异步处理veo3视频生成请求"""
+    def _handle_veo3_img2video_async(self, image_path, prompt, e_context):
+        """异步处理veo3图生视频请求"""
         # 启动异步任务
         import threading
-        thread = threading.Thread(target=self._handle_veo3_video_sync, args=(prompt, e_context))
+        thread = threading.Thread(target=self._handle_veo3_img2video_sync, args=(image_path, prompt, e_context))
         thread.start()
 
-    def _handle_veo3_video_sync(self, prompt, e_context):
-        """同步处理veo3视频生成请求"""
-        logger.info(f"[veo3] 开始处理veo3视频任务，提示词: {prompt}")
+    def _handle_veo3_img2video_sync(self, image_path, prompt, e_context):
+        """同步处理veo3图生视频请求"""
+        logger.info(f"[veo3-img2video] 开始处理veo3图生视频任务，提示词: {prompt}")
         
-        max_retries = self.veo3_retry_times
-        api_key = self.veo3_api_key
-        api_base = self.veo3_api_base
-        
-        for retry in range(max_retries):
+        try:
+            import uuid
+            
+            # 读取图片文件
+            with open(image_path, 'rb') as img_file:
+                image_data = img_file.read()
+            
+            logger.info(f"[veo3-img2video] 图片已读取，大小: {len(image_data)} 字节")
+            
+            # 构建multipart/form-data请求
+            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
+            
+            # 构建form-data body
+            body_parts = []
+            
+            # 添加model字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="model"')
+            body_parts.append('')
+            body_parts.append('veo3')
+            
+            # 添加prompt字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="prompt"')
+            body_parts.append('')
+            body_parts.append(prompt if prompt else "根据这张图片生成一个动态视频")
+            
+            # 添加seconds字段（8秒）
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="seconds"')
+            body_parts.append('')
+            body_parts.append('8')
+            
+            # 添加size字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="size"')
+            body_parts.append('')
+            body_parts.append('1280x720')
+            
+            # 添加watermark字段
+            body_parts.append(f'--{boundary}')
+            body_parts.append('Content-Disposition: form-data; name="watermark"')
+            body_parts.append('')
+            body_parts.append('false')
+            
+            # 添加图片文件
+            filename = os.path.basename(image_path)
+            ext = os.path.splitext(image_path)[1].lower()
+            mime_types = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }
+            content_type = mime_types.get(ext, 'image/jpeg')
+            
+            body_parts.append(f'--{boundary}')
+            body_parts.append(f'Content-Disposition: form-data; name="input_reference"; filename="{filename}"')
+            body_parts.append(f'Content-Type: {content_type}')
+            body_parts.append('')
+            
+            # 将文本部分组合
+            body_text = '\r\n'.join(body_parts) + '\r\n'
+            
+            # 构建完整的body（文本 + 二进制图片数据 + 结束边界）
+            body = body_text.encode('utf-8') + image_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+            
+            # 发送请求到 api.tu-zi.com
+            conn = http.client.HTTPSConnection("api.tu-zi.com")
+            
+            headers = {
+                'Authorization': f'Bearer {self.veo3_api_key}',
+                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Length': str(len(body))
+            }
+            
+            # 发送POST请求
+            conn.request("POST", "/v1/videos", body, headers)
+            res = conn.getresponse()
+            data = res.read()
+            response_text = data.decode("utf-8")
+            conn.close()
+            
+            logger.info(f"[veo3-img2video] API响应状态: {res.status}, 内容: {response_text[:500]}")
+            
+            # 解析响应获取task_id
+            task_id = ""
             try:
-                url = f"{api_base}/chat/completions"
-                headers = {
-                    'Accept': 'application/json',
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json'
-                }
-                data = {
-                    "temperature": 0.7,
-                    "messages": [
-                        {"content": prompt, "role": "user"}
-                    ],
-                    "model": "veo3",
-                    "stream": False
-                }
-                
-                response = requests.post(url, headers=headers, json=data, timeout=300)
-                
-                if response.status_code != 200:
-                    logger.warning(f"veo3接口返回非200: {response.status_code}")
-                    time.sleep(2)
-                    continue
-                
-                try:
-                    result = response.json()
-                except Exception as e:
-                    logger.warning(f"veo3响应解析失败: {e}")
-                    time.sleep(2)
-                    continue
-                
-                # 提取prompt回复
-                try:
-                    prompt_text = result["choices"][0]["message"]["content"]
-                    if prompt_text:
-                        tip = f"💡veo3模型理解您的描述如下：\n{prompt_text}"
-                        self._send_reply(tip, e_context)
-                except Exception:
-                    pass
-                
-                # 提取视频URL
-                video_url = None
-                import re
-                match = re.search(r'https?://[\w\-\./]+\.mp4', response.text)
-                if match:
-                    video_url = match.group(0)
-                
-                if video_url:
-                    logger.info(f"veo3视频url获取成功: {video_url}")
-                    self._download_and_send_video(video_url, e_context, "veo3视频")
-                    return
-                else:
-                    logger.error(f"veo3未获取到视频url")
-                    self._send_reply("未获取到视频URL", e_context)
-                    return
-                    
+                result = json.loads(response_text)
+                task_id = result.get("id", "")
+                logger.info(f"[veo3-img2video] 解析到的task_id: {task_id}")
             except Exception as e:
-                logger.warning(f"veo3请求异常: {e}")
-                time.sleep(2)
-        
-        # 超过重试次数
-        error_tip = f"veo3接口重试{max_retries}次仍失败，可能是服务器繁忙或内容不合规。请稍后重试，或更换描述内容。"
-        self._send_reply(error_tip, e_context)
+                logger.error(f"[veo3-img2video] 解析响应失败: {e}")
+            
+            if not task_id:
+                logger.error(f"[veo3-img2video] 未能获取到task_id，响应: {response_text}")
+                self._send_reply(f"veo3图生视频请求失败: {response_text[:200]}", e_context)
+                return
+            
+            logger.info(f"[veo3-img2video] 任务已提交，task_id: {task_id}")
+            self._send_reply("veo3图生视频任务已提交（8秒），正在处理中...", e_context)
+            
+            # 轮询查询任务状态
+            max_retries = self.veo3_retry_times
+            interval = 10  # 10秒查询一次
+            
+            for retry in range(1, max_retries + 1):
+                logger.info(f"[veo3-img2video] 查询任务状态 [{retry}/{max_retries}]")
+                time.sleep(interval)
+                
+                # 查询任务状态
+                conn = http.client.HTTPSConnection("api.tu-zi.com")
+                headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
+                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
+                res = conn.getresponse()
+                data = res.read()
+                response_text = data.decode("utf-8")
+                conn.close()
+                
+                try:
+                    result_data = json.loads(response_text)
+                    status = result_data.get("status", "unknown")
+                    logger.info(f"[veo3-img2video] 任务状态: {status}, 响应: {response_text[:500]}")
+                    
+                    if status == "completed":
+                        # 获取视频URL
+                        video_url = result_data.get("video_url")
+                        
+                        if video_url:
+                            logger.info(f"[veo3-img2video] 视频生成成功: {video_url}")
+                            self._download_and_send_video(video_url, e_context, "veo3图生视频")
+                            return
+                        else:
+                            self._send_reply("veo3图生视频完成但未找到视频URL", e_context)
+                            return
+                    
+                    elif status in ["failed", "error"]:
+                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
+                        logger.error(f"[veo3-img2video] 视频生成失败: {error_msg}")
+                        self._send_reply(f"veo3图生视频失败: {error_msg}", e_context)
+                        return
+                    
+                except Exception as e:
+                    logger.warning(f"[veo3-img2video] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
+            
+            # 超过重试次数
+            self._send_reply(f"veo3图生视频超时，已尝试{max_retries}次查询", e_context)
+            
+        except Exception as e:
+            logger.error(f"[veo3-img2video] 图生视频API调用异常: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self._send_reply(f"veo3图生视频服务出错: {str(e)}", e_context)
+        finally:
+            # 删除原始图片文件
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    logger.info(f"原始图片文件已删除: {image_path}")
+            except Exception as e:
+                logger.error(f"删除原始图片文件失败: {image_path}, error: {e}")
 
     # ============ 下载和发送辅助方法 ============
 
