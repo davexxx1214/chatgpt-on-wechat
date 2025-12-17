@@ -101,7 +101,7 @@ class stability(Plugin):
             self.edit_image_prefix = self.config.get("edit_image_prefix", "垫图")
             self.openai_image_api_key = self.config.get("openai_image_api_key", "")
             self.openai_image_api_base = self.config.get("openai_image_api_base", "")
-            self.image_model = self.config.get("image_model", "gpt-image-1")
+            self.image_model = self.config.get("image_model", "gpt-image-1.5")
             
             # 修图配置 (Gemini)
             self.inpaint_prefix = self.config.get("inpaint_prefix", "修图")
@@ -977,7 +977,7 @@ class stability(Plugin):
 
     def _handle_edit_image_async(self, image_path, prompt, e_context):
         """异步处理垫图请求"""
-        tip = f"🎨 gpt-image-1垫图请求已进入队列，预计需要30-150秒完成。请稍候...\n提示词：{prompt}"
+        tip = f"🎨 gpt-image-1.5垫图请求已进入队列，预计需要30-150秒完成。请稍候...\n提示词：{prompt}"
         self._send_reply(tip, e_context)
         
         # 启动异步任务

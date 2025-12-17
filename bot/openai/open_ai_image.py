@@ -38,7 +38,7 @@ class OpenAIImage(object):
             }
             
             payload = {
-                "model": "gpt-image-1",
+                "model": "chatgpt-image-latest",
                 "moderation":"low",
                 "prompt": query,
                 "n": 1,
@@ -75,7 +75,7 @@ class OpenAIImage(object):
                         # 这里我们需要返回一个可以被现有代码处理的格式
                         # 可以创建一个临时的数据URL或者返回base64字符串
                         data_url = f"data:image/png;base64,{image_b64}"
-                        logger.info("[OPEN_AI] image generated successfully with gpt-image-1")
+                        logger.info("[OPEN_AI] image generated successfully with gpt-image-1.5")
                         return True, data_url
                     elif data["data"][0].get("url"):
                         # 兼容URL格式返回
