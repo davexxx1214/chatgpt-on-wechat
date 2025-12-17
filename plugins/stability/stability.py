@@ -498,7 +498,7 @@ class stability(Plugin):
 
             user_prompt = content[len(self.fal_img_prefix):].strip()
             if not user_prompt:
-                tip = f"欢迎使用Sora2图生视频！\n正确的指令格式是：{self.fal_img_prefix} + 空格 + 视频描述提示词\n\n例如：\n{self.fal_img_prefix} 让猫咪在草地上奔跑\n{self.fal_img_prefix} 人物向前走动，背景模糊"
+                tip = f"欢迎使用Kling2.6图生视频（10秒）！\n正确的指令格式是：{self.fal_img_prefix} + 空格 + 视频描述提示词\n\n例如：\n{self.fal_img_prefix} 让猫咪在草地上奔跑\n{self.fal_img_prefix} 人物向前走动，背景模糊"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
@@ -516,7 +516,7 @@ class stability(Plugin):
             self.waiting_blend.pop(key, None)
             self.waiting_fal_edit.pop(key, None)
             
-            tip = f"💡已开启Sora2图生视频模式，您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt}"
+            tip = f"💡已开启Kling2.6图生视频模式（10秒），您接下来第一张图片会生成视频。\n当前的提示词为：\n{user_prompt}"
             reply = Reply(type=ReplyType.TEXT, content=tip)
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
@@ -535,12 +535,12 @@ class stability(Plugin):
 
             user_prompt = content[len(self.fal_text_prefix):].strip()
             if not user_prompt:
-                tip = f"💡欢迎使用Sora2文生视频，指令格式为:\n\n{self.fal_text_prefix}+ 空格 + 视频描述\n例如：{self.fal_text_prefix} 一只猫在草地上奔跑"
+                tip = f"💡欢迎使用Kling2.6文生视频（10秒），指令格式为:\n\n{self.fal_text_prefix}+ 空格 + 视频描述\n例如：{self.fal_text_prefix} 一只猫在草地上奔跑"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
                 return
             
-            tip = "💡已开启Sora2文生视频模式，将根据您的描述生成视频。"
+            tip = "💡已开启Kling2.6文生视频模式（10秒），将根据您的描述生成视频。"
             self._send_reply(tip, e_context)
             self._handle_text2video_async(user_prompt, e_context)
             return
@@ -1449,165 +1449,78 @@ class stability(Plugin):
         thread.start()
 
     def _handle_img2video_sync(self, image_path, prompt, e_context):
-        """同步处理图生视频请求 - 使用Sora2模型"""
-        logger.info(f"[img2video-sora2] 开始处理图生视频任务，提示词: {prompt}")
+        """同步处理图生视频请求 - 使用Kling2.6模型"""
+        logger.info(f"[img2video-kling2.6] 开始处理图生视频任务，提示词: {prompt}")
         
         try:
-            import mimetypes
-            from email.mime.multipart import MIMEMultipart
-            from email.mime.text import MIMEText
-            from email.mime.base import MIMEBase
-            from email import encoders
-            import uuid
-            
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                self._send_reply("图生视频服务当前不可用，请检查FAL API配置", e_context)
+                return
+
             # 读取图片文件
             with open(image_path, 'rb') as img_file:
                 image_data = img_file.read()
             
-            logger.info(f"[img2video-sora2] 图片已读取，大小: {len(image_data)} 字节")
+            logger.info(f"[img2video-kling2.6] 图片已读取，大小: {len(image_data)} 字节")
             
-            # 构建multipart/form-data请求
-            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
-            
-            # 构建form-data body
-            body_parts = []
-            
-            # 添加model字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="model"')
-            body_parts.append('')
-            body_parts.append('sora-2')
-            
-            # 添加prompt字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="prompt"')
-            body_parts.append('')
-            body_parts.append(prompt if prompt else "根据这张图片生成一个动态视频")
-            
-            # 添加size字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="size"')
-            body_parts.append('')
-            body_parts.append('1280x720')
-            
-            # 添加seconds字段（空字符串表示使用默认值）
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="seconds"')
-            body_parts.append('')
-            body_parts.append('')
-            
-            # 添加watermark字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="watermark"')
-            body_parts.append('')
-            body_parts.append('')
-            
-            # 添加图片文件
-            filename = os.path.basename(image_path)
-            ext = os.path.splitext(image_path)[1].lower()
-            mime_types = {
-                '.png': 'image/png',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.gif': 'image/gif',
-                '.webp': 'image/webp'
-            }
-            content_type = mime_types.get(ext, 'image/jpeg')
-            
-            body_parts.append(f'--{boundary}')
-            body_parts.append(f'Content-Disposition: form-data; name="input_reference"; filename="{filename}"')
-            body_parts.append(f'Content-Type: {content_type}')
-            body_parts.append('')
-            
-            # 将文本部分组合
-            body_text = '\r\n'.join(body_parts) + '\r\n'
-            
-            # 构建完整的body（文本 + 二进制图片数据 + 结束边界）
-            body = body_text.encode('utf-8') + image_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
-            
-            # 发送请求到 api.tu-zi.com
-            conn = http.client.HTTPSConnection("api.tu-zi.com")
-            
-            headers = {
-                'Authorization': f'Bearer {self.veo3_api_key}',
-                'Content-Type': f'multipart/form-data; boundary={boundary}',
-                'Content-Length': str(len(body))
-            }
-            
-            # 发送POST请求
-            conn.request("POST", "/v1/videos", body, headers)
-            res = conn.getresponse()
-            data = res.read()
-            response_text = data.decode("utf-8")
-            conn.close()
-            
-            logger.info(f"[img2video-sora2] API响应状态: {res.status}, 内容: {response_text[:500]}")
-            
-            # 解析响应获取task_id
-            task_id = ""
+            # 保存图片到临时文件
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+                tmp_file.write(image_data)
+                tmp_file_path = tmp_file.name
+
             try:
-                result = json.loads(response_text)
-                task_id = result.get("id", "")
-                logger.info(f"[img2video-sora2] 解析到的task_id: {task_id}")
-            except Exception as e:
-                logger.error(f"[img2video-sora2] 解析响应失败: {e}")
-            
-            if not task_id:
-                logger.error(f"[img2video-sora2] 未能获取到task_id，响应: {response_text}")
-                self._send_reply(f"图生视频请求失败: {response_text[:200]}", e_context)
-                return
-            
-            logger.info(f"[img2video-sora2] 任务已提交，task_id: {task_id}")
-            self._send_reply("图生视频任务已提交，正在处理中...", e_context)
-            
-            # 轮询查询任务状态
-            max_retries = self.veo3_retry_times
-            interval = 10  # 10秒查询一次
-            
-            for retry in range(1, max_retries + 1):
-                logger.info(f"[img2video-sora2] 查询任务状态 [{retry}/{max_retries}]")
-                time.sleep(interval)
+                # 使用fal_client上传图片并调用Kling视频生成API
+                client = fal_client.SyncClient(key=self.fal_api_key)
+                image_url = client.upload_file(tmp_file_path)
+                if not image_url:
+                    self._send_reply("图片上传失败，图生视频终止", e_context)
+                    return
                 
-                # 查询任务状态
-                conn = http.client.HTTPSConnection("api.tu-zi.com")
-                headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
-                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
-                res = conn.getresponse()
-                data = res.read()
-                response_text = data.decode("utf-8")
-                conn.close()
+                logger.info(f"[img2video-kling2.6] 图片上传成功: {image_url}")
                 
-                try:
-                    result_data = json.loads(response_text)
-                    status = result_data.get("status", "unknown")
-                    logger.info(f"[img2video-sora2] 任务状态: {status}, 响应: {response_text[:500]}")
+                self._send_reply("图生视频任务已提交，正在处理中...", e_context)
+
+                # 调用fal-ai/kling-video/v2.6/pro/image-to-video进行视频生成
+                result = client.subscribe(
+                    f"fal-ai/{self.fal_kling_img_model}",
+                    arguments={
+                        "prompt": prompt if prompt else "根据这张图片生成一个动态视频",
+                        "image_url": image_url,
+                        "duration": "10",
+                        "negative_prompt": "blur, distort, and low quality",
+                        "generate_audio": False
+                    },
+                    with_logs=True
+                )
+                
+                logger.info(f"[img2video-kling2.6] API响应: {result}")
+                
+                # 处理返回结果
+                video_url = None
+                if isinstance(result, dict):
+                    if "video" in result and isinstance(result["video"], dict):
+                        video_url = result["video"].get("url")
+                    elif "url" in result:
+                        video_url = result["url"]
+                
+                if video_url and video_url.startswith("http"):
+                    logger.info(f"[img2video-kling2.6] 视频生成成功: {video_url}")
+                    self._download_and_send_video(video_url, e_context, "图生视频-Kling2.6")
+                else:
+                    logger.error(f"[img2video-kling2.6] 未能从API响应中获取视频URL，完整响应: {result}")
+                    self._send_reply("图生视频失败，API没有返回视频URL", e_context)
                     
-                    if status == "completed":
-                        # 获取视频URL
-                        video_url = result_data.get("video_url")
-                        
-                        if video_url:
-                            logger.info(f"[img2video-sora2] 视频生成成功: {video_url}")
-                            self._download_and_send_video(video_url, e_context, "图生视频-Sora2")
-                            return
-                        else:
-                            self._send_reply("图生视频完成但未找到视频URL", e_context)
-                            return
-                    
-                    elif status in ["failed", "error"]:
-                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
-                        logger.error(f"[img2video-sora2] 视频生成失败: {error_msg}")
-                        self._send_reply(f"图生视频失败: {error_msg}", e_context)
-                        return
-                    
-                except Exception as e:
-                    logger.warning(f"[img2video-sora2] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
-            
-            # 超过重试次数
-            self._send_reply(f"图生视频超时，已尝试{max_retries}次查询", e_context)
+            finally:
+                # 删除临时文件
+                if tmp_file_path and os.path.exists(tmp_file_path):
+                    try:
+                        os.remove(tmp_file_path)
+                        logger.info(f"[img2video-kling2.6] 临时文件已删除: {tmp_file_path}")
+                    except Exception as e_rem:
+                        logger.warning(f"[img2video-kling2.6] 删除临时文件失败: {tmp_file_path}, error: {e_rem}")
             
         except Exception as e:
-            logger.error(f"[img2video-sora2] 图生视频API调用异常: {e}")
+            logger.error(f"[img2video-kling2.6] 图生视频API调用异常: {e}")
             import traceback
             logger.error(traceback.format_exc())
             self._send_reply(f"图生视频服务出错: {str(e)}", e_context)
@@ -1628,138 +1541,52 @@ class stability(Plugin):
         thread.start()
 
     def _handle_text2video_sync(self, prompt, e_context):
-        """同步处理文生视频请求 - 使用Sora2模型"""
-        logger.info(f"[text2video-sora2] 开始处理文生视频任务，提示词: {prompt}")
+        """同步处理文生视频请求 - 使用Kling2.6模型"""
+        logger.info(f"[text2video-kling2.6] 开始处理文生视频任务，提示词: {prompt}")
         
         try:
-            import uuid
-            
-            # 构建multipart/form-data请求
-            boundary = f'----WebKitFormBoundary{uuid.uuid4().hex[:16]}'
-            
-            # 构建form-data body
-            body_parts = []
-            
-            # 添加model字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="model"')
-            body_parts.append('')
-            body_parts.append('sora-2')
-            
-            # 添加prompt字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="prompt"')
-            body_parts.append('')
-            body_parts.append(prompt)
-            
-            # 添加size字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="size"')
-            body_parts.append('')
-            body_parts.append('1280x720')
-            
-            # 添加seconds字段（空字符串表示使用默认值）
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="seconds"')
-            body_parts.append('')
-            body_parts.append('')
-            
-            # 添加watermark字段
-            body_parts.append(f'--{boundary}')
-            body_parts.append('Content-Disposition: form-data; name="watermark"')
-            body_parts.append('')
-            body_parts.append('')
-            
-            # 结束边界
-            body_parts.append(f'--{boundary}--')
-            body_parts.append('')
-            
-            # 组合body
-            body = '\r\n'.join(body_parts)
-            
-            # 发送请求到 api.tu-zi.com
-            conn = http.client.HTTPSConnection("api.tu-zi.com")
-            
-            headers = {
-                'Authorization': f'Bearer {self.veo3_api_key}',
-                'Content-Type': f'multipart/form-data; boundary={boundary}',
-                'Content-Length': str(len(body))
-            }
-            
-            # 发送POST请求
-            conn.request("POST", "/v1/videos", body.encode('utf-8'), headers)
-            res = conn.getresponse()
-            data = res.read()
-            response_text = data.decode("utf-8")
-            conn.close()
-            
-            logger.info(f"[text2video-sora2] API响应状态: {res.status}, 内容: {response_text[:500]}")
-            
-            # 解析响应获取task_id
-            task_id = ""
-            try:
-                result = json.loads(response_text)
-                task_id = result.get("id", "")
-                logger.info(f"[text2video-sora2] 解析到的task_id: {task_id}")
-            except Exception as e:
-                logger.error(f"[text2video-sora2] 解析响应失败: {e}")
-            
-            if not task_id:
-                logger.error(f"[text2video-sora2] 未能获取到task_id，响应: {response_text}")
-                self._send_reply(f"视频生成请求失败: {response_text[:200]}", e_context)
+            if not FAL_AVAILABLE or not self.fal_api_key or self.fal_api_key == "your_fal_api_key_here":
+                self._send_reply("文生视频服务当前不可用，请检查FAL API配置", e_context)
                 return
+
+            # 使用fal_client调用Kling文生视频API
+            client = fal_client.SyncClient(key=self.fal_api_key)
             
-            logger.info(f"[text2video-sora2] 任务已提交，task_id: {task_id}")
-            self._send_reply("视频生成任务已提交，正在处理中...", e_context)
+            self._send_reply("文生视频任务已提交，正在处理中...", e_context)
+
+            # 调用fal-ai/kling-video/v2.6/pro/text-to-video进行视频生成
+            result = client.subscribe(
+                f"fal-ai/{self.fal_kling_text_model}",
+                arguments={
+                    "prompt": prompt,
+                    "duration": "10",
+                    "aspect_ratio": "16:9",
+                    "negative_prompt": "blur, distort, and low quality",
+                    "cfg_scale": 0.5,
+                    "generate_audio": False
+                },
+                with_logs=True
+            )
             
-            # 轮询查询任务状态
-            max_retries = self.veo3_retry_times
-            interval = 10  # 10秒查询一次
+            logger.info(f"[text2video-kling2.6] API响应: {result}")
             
-            for retry in range(1, max_retries + 1):
-                logger.info(f"[text2video-sora2] 查询任务状态 [{retry}/{max_retries}]")
-                time.sleep(interval)
-                
-                # 查询任务状态
-                conn = http.client.HTTPSConnection("api.tu-zi.com")
-                headers = {'Authorization': f'Bearer {self.veo3_api_key}'}
-                conn.request("GET", f"/v1/videos/{task_id}", '', headers)
-                res = conn.getresponse()
-                data = res.read()
-                response_text = data.decode("utf-8")
-                conn.close()
-                
-                try:
-                    result_data = json.loads(response_text)
-                    status = result_data.get("status", "unknown")
-                    logger.info(f"[text2video-sora2] 任务状态: {status}, 响应: {response_text[:500]}")
-                    
-                    if status == "completed":
-                        # 获取视频URL
-                        video_url = result_data.get("video_url")
-                        
-                        if video_url:
-                            logger.info(f"[text2video-sora2] 视频生成成功: {video_url}")
-                            self._download_and_send_video(video_url, e_context, "文生视频-Sora2")
-                            return
-                        else:
-                            self._send_reply("视频生成完成但未找到视频URL", e_context)
-                            return
-                    
-                    elif status in ["failed", "error"]:
-                        error_msg = result_data.get("error", result_data.get("message", "未知错误"))
-                        logger.error(f"[text2video-sora2] 视频生成失败: {error_msg}")
-                        self._send_reply(f"视频生成失败: {error_msg}", e_context)
-                        return
-                    
-                except Exception as e:
-                    logger.warning(f"[text2video-sora2] 解析响应异常: {e}, 响应内容: {response_text[:500]}")
+            # 处理返回结果
+            video_url = None
+            if isinstance(result, dict):
+                if "video" in result and isinstance(result["video"], dict):
+                    video_url = result["video"].get("url")
+                elif "url" in result:
+                    video_url = result["url"]
             
-            # 超过重试次数
-            self._send_reply(f"视频生成超时，已尝试{max_retries}次查询", e_context)
+            if video_url and video_url.startswith("http"):
+                logger.info(f"[text2video-kling2.6] 视频生成成功: {video_url}")
+                self._download_and_send_video(video_url, e_context, "文生视频-Kling2.6")
+            else:
+                logger.error(f"[text2video-kling2.6] 未能从API响应中获取视频URL，完整响应: {result}")
+                self._send_reply("文生视频失败，API没有返回视频URL", e_context)
             
         except Exception as e:
-            logger.error(f"[text2video-sora2] 文生视频API调用异常: {e}")
+            logger.error(f"[text2video-kling2.6] 文生视频API调用异常: {e}")
             import traceback
             logger.error(traceback.format_exc())
             self._send_reply(f"文生视频服务出错: {str(e)}", e_context)
