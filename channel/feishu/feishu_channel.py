@@ -473,7 +473,7 @@ class FeishuController:
                 
                 # 先发送画图提示消息
                 prompt_content = content.strip()
-                tip_message = f"🎨 正在使用 gpt-image-1 为您绘画，请稍候...\n提示词：{prompt_content}"
+                tip_message = f"🎨 正在使用 gpt-image-1.5 为您绘画，请稍候...\n提示词：{prompt_content}"
                 
                 # 创建提示回复并立即发送
                 tip_reply = Reply(ReplyType.TEXT, tip_message)
