@@ -1072,28 +1072,80 @@ class stability(Plugin):
         thread.start()
 
     def _handle_inpaint_image_sync(self, image_path, prompt, e_context):
-        """同步处理Gemini修图请求"""
+        """同步处理Gemini修图请求 - 使用官方SDK格式"""
         try:
             # 加载图片
             with open(image_path, 'rb') as img_file:
                 image_bytes = img_file.read()
             
+            # 检测图片格式
             pil_image = Image.open(io.BytesIO(image_bytes))
+            img_format = pil_image.format.lower() if pil_image.format else 'jpeg'
+            mime_type = f"image/{img_format}"
+            if img_format == 'jpg':
+                mime_type = "image/jpeg"
             
             # 根据SDK版本选择不同的调用方式
             if GEMINI_NEW_SDK and self.gemini_new_client:
-                # 使用新版SDK (google.genai) - 支持图像生成
+                # 使用新版SDK (google.genai) - 按官方代码格式
                 logger.info(f"[Gemini修图] 使用新版SDK，模型: {self.gemini_model_name}")
+                
+                # 创建图片Part
+                image_part = genai_types_new.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type=mime_type
+                )
+                
+                # 创建文本Part
+                text_part = genai_types_new.Part.from_text(text=prompt)
+                
+                # 创建Content
+                contents = [
+                    genai_types_new.Content(
+                        role="user",
+                        parts=[image_part, text_part]
+                    )
+                ]
+                
+                # 创建配置 - 按官方代码格式
+                generate_content_config = genai_types_new.GenerateContentConfig(
+                    temperature=1,
+                    top_p=0.95,
+                    max_output_tokens=32768,
+                    response_modalities=["TEXT", "IMAGE"],
+                    safety_settings=[
+                        genai_types_new.SafetySetting(
+                            category="HARM_CATEGORY_HATE_SPEECH",
+                            threshold="OFF"
+                        ),
+                        genai_types_new.SafetySetting(
+                            category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                            threshold="OFF"
+                        ),
+                        genai_types_new.SafetySetting(
+                            category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            threshold="OFF"
+                        ),
+                        genai_types_new.SafetySetting(
+                            category="HARM_CATEGORY_HARASSMENT",
+                            threshold="OFF"
+                        )
+                    ],
+                    image_config=genai_types_new.ImageConfig(
+                        aspect_ratio="1:1",
+                        image_size="1K",
+                        output_mime_type="image/png",
+                    ),
+                )
+                
                 response = self.gemini_new_client.models.generate_content(
                     model=self.gemini_model_name,
-                    contents=[prompt, pil_image],
-                    config=genai_types_new.GenerateContentConfig(
-                        response_modalities=["TEXT", "IMAGE"]
-                    )
+                    contents=contents,
+                    config=generate_content_config
                 )
             else:
-                # 使用旧版SDK (google.generativeai)
-                logger.info(f"[Gemini修图] 使用旧版SDK，模型: {self.gemini_model_name}")
+                # 使用旧版SDK (google.generativeai) - 可能不支持图像生成
+                logger.warning(f"[Gemini修图] 使用旧版SDK，图像生成功能可能受限，模型: {self.gemini_model_name}")
                 safety_settings = [
                     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -1138,6 +1190,7 @@ class stability(Plugin):
                             if isinstance(img_data, str):
                                 img_data = base64.b64decode(img_data)
                             edited_images.append(img_data)
+                            logger.info(f"[Gemini修图] 成功提取图片数据，大小: {len(img_data)} bytes")
 
             # 发送响应
             sent_something = False
@@ -1190,7 +1243,7 @@ class stability(Plugin):
                 logger.warning(f"[Gemini修图] 未收到图片，模型可能不支持图像生成。请检查模型名称是否正确。当前模型: {self.gemini_model_name}")
 
             if not sent_something:
-                self._send_reply(f"Gemini修图失败，API没有返回图片。\n当前模型 {self.gemini_model_name} 可能不支持图像生成。\n建议使用支持图像生成的模型，如：gemini-2.0-flash-exp 或 gemini-2.5-flash-image-preview", e_context)
+                self._send_reply(f"Gemini修图失败，API没有返回图片。\n当前模型 {self.gemini_model_name} 可能不支持图像生成。\n建议使用支持图像生成的模型，如：gemini-3-pro-image-preview", e_context)
 
         except Exception as e:
             logger.error(f"Gemini inpaint service exception: {e}")
