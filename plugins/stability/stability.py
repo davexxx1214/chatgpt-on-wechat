@@ -1109,13 +1109,13 @@ class stability(Plugin):
                     )
                 ]
                 
-                # 创建配置 - 按官方代码格式
-                generate_content_config = genai_types_new.GenerateContentConfig(
-                    temperature=1,
-                    top_p=0.95,
-                    max_output_tokens=32768,
-                    response_modalities=["TEXT", "IMAGE"],
-                    safety_settings=[
+                # 创建配置
+                config_params = {
+                    "temperature": 1,
+                    "top_p": 0.95,
+                    "max_output_tokens": 32768,
+                    "response_modalities": ["TEXT", "IMAGE"],
+                    "safety_settings": [
                         genai_types_new.SafetySetting(
                             category="HARM_CATEGORY_HATE_SPEECH",
                             threshold="OFF"
@@ -1133,12 +1133,17 @@ class stability(Plugin):
                             threshold="OFF"
                         )
                     ],
-                    image_config=genai_types_new.ImageConfig(
+                }
+                
+                # 尝试添加 image_config（某些SDK版本可能不支持）
+                if hasattr(genai_types_new, 'ImageConfig'):
+                    config_params["image_config"] = genai_types_new.ImageConfig(
                         aspect_ratio="1:1",
                         image_size="1K",
                         output_mime_type="image/png",
-                    ),
-                )
+                    )
+                
+                generate_content_config = genai_types_new.GenerateContentConfig(**config_params)
                 
                 response = self.gemini_new_client.models.generate_content(
                     model=self.gemini_model_name,
