@@ -396,7 +396,9 @@ class stability(Plugin):
 
         # 处理修图指令
         if content.startswith(self.inpaint_prefix):
-            if not self.gemini_client:
+            # 检查Gemini客户端可用性（新版或旧版）
+            gemini_available = (GEMINI_NEW_SDK and self.gemini_new_client) or (not GEMINI_NEW_SDK and self.gemini_client)
+            if not gemini_available:
                 tip = "抱歉，Gemini修图服务当前不可用，请联系管理员检查配置。"
                 reply = Reply(type=ReplyType.TEXT, content=tip)
                 e_context["reply"] = reply
