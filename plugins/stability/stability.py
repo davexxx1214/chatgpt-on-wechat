@@ -24,14 +24,23 @@ import aiohttp
 import traceback
 import http.client
 
-# Gemini imports
+# Gemini imports - 优先使用新版SDK (google.genai)，支持图像生成
+GEMINI_NEW_SDK = False
+GEMINI_AVAILABLE = False
 try:
-    import google.generativeai as genai
-    from google.generativeai import types as genai_types
+    from google import genai as genai_new
+    from google.genai import types as genai_types_new
+    GEMINI_NEW_SDK = True
     GEMINI_AVAILABLE = True
+    logger.info("[stability] Google genai (新版SDK) 已加载，支持图像生成")
 except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("[stability] Google Generative AI not available, Gemini修图功能将不可用")
+    try:
+        import google.generativeai as genai
+        from google.generativeai import types as genai_types
+        GEMINI_AVAILABLE = True
+        logger.warning("[stability] 仅加载旧版SDK (google.generativeai)，图像生成功能可能受限")
+    except ImportError:
+        logger.warning("[stability] Google Generative AI not available, Gemini修图功能将不可用")
 
 # Fal client imports
 try:
@@ -145,11 +154,18 @@ class stability(Plugin):
             
             # 初始化Gemini客户端
             self.gemini_client = None
+            self.gemini_new_client = None  # 新版SDK客户端
             if GEMINI_AVAILABLE and self.google_api_key:
                 try:
-                    genai.configure(api_key=self.google_api_key)
-                    self.gemini_client = genai.GenerativeModel(self.gemini_model_name)
-                    logger.info(f"[stability] Google Gemini client initialized with model {self.gemini_model_name}")
+                    if GEMINI_NEW_SDK:
+                        # 使用新版SDK (google.genai) - 支持图像生成
+                        self.gemini_new_client = genai_new.Client(api_key=self.google_api_key)
+                        logger.info(f"[stability] Google Gemini 新版客户端初始化成功，模型: {self.gemini_model_name}")
+                    else:
+                        # 使用旧版SDK (google.generativeai)
+                        genai.configure(api_key=self.google_api_key)
+                        self.gemini_client = genai.GenerativeModel(self.gemini_model_name)
+                        logger.info(f"[stability] Google Gemini 旧版客户端初始化成功，模型: {self.gemini_model_name}")
                 except Exception as e:
                     logger.error(f"[stability] Failed to initialize Google Gemini client: {e}")
             elif not GEMINI_AVAILABLE:
@@ -1039,7 +1055,11 @@ class stability(Plugin):
 
     def _handle_inpaint_image_async(self, image_path, prompt, e_context):
         """异步处理Gemini修图请求"""
-        if not self.gemini_client:
+        # 检查客户端可用性
+        if not GEMINI_NEW_SDK and not self.gemini_client:
+            self._send_reply("Gemini修图服务当前不可用", e_context)
+            return
+        if GEMINI_NEW_SDK and not self.gemini_new_client:
             self._send_reply("Gemini修图服务当前不可用", e_context)
             return
             
@@ -1060,23 +1080,34 @@ class stability(Plugin):
             
             pil_image = Image.open(io.BytesIO(image_bytes))
             
-            # 安全设置
-            safety_settings = [
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-            ]
-
-            generation_config = {
-                "response_modalities": ["TEXT", "IMAGE"]
-            }
-
-            response = self.gemini_client.generate_content(
-                contents=[prompt, pil_image],
-                safety_settings=safety_settings,
-                generation_config=generation_config
-            )
+            # 根据SDK版本选择不同的调用方式
+            if GEMINI_NEW_SDK and self.gemini_new_client:
+                # 使用新版SDK (google.genai) - 支持图像生成
+                logger.info(f"[Gemini修图] 使用新版SDK，模型: {self.gemini_model_name}")
+                response = self.gemini_new_client.models.generate_content(
+                    model=self.gemini_model_name,
+                    contents=[prompt, pil_image],
+                    config=genai_types_new.GenerateContentConfig(
+                        response_modalities=["TEXT", "IMAGE"]
+                    )
+                )
+            else:
+                # 使用旧版SDK (google.generativeai)
+                logger.info(f"[Gemini修图] 使用旧版SDK，模型: {self.gemini_model_name}")
+                safety_settings = [
+                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                ]
+                generation_config = {
+                    "response_modalities": ["TEXT", "IMAGE"]
+                }
+                response = self.gemini_client.generate_content(
+                    contents=[prompt, pil_image],
+                    safety_settings=safety_settings,
+                    generation_config=generation_config
+                )
             
             # 处理安全检查
             if (hasattr(response, 'candidates') and response.candidates and
@@ -1099,9 +1130,14 @@ class stability(Plugin):
                     if hasattr(part, 'text') and part.text:
                         text_parts_content.append(part.text)
                     
-                    if (hasattr(part, 'inline_data') and part.inline_data and 
-                        hasattr(part.inline_data, 'data') and part.inline_data.data):
-                        edited_images.append(part.inline_data.data)
+                    # 新版SDK的图片数据格式
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        if hasattr(part.inline_data, 'data') and part.inline_data.data:
+                            img_data = part.inline_data.data
+                            # 新版SDK可能返回bytes或base64字符串
+                            if isinstance(img_data, str):
+                                img_data = base64.b64decode(img_data)
+                            edited_images.append(img_data)
 
             # 发送响应
             sent_something = False
@@ -1122,10 +1158,10 @@ class stability(Plugin):
                     self._send_reply(tip, e_context)
                 
                 # 依次发送每张图片
-                for i, image_bytes in enumerate(edited_images, 1):
+                for i, img_bytes in enumerate(edited_images, 1):
                     try:
                         # 转换为base64格式发送
-                        image_b64 = base64.b64encode(image_bytes).decode()
+                        image_b64 = base64.b64encode(img_bytes).decode()
                         data_url = f"data:image/png;base64,{image_b64}"
                         
                         # 如果是多张图片，为每张图片添加序号提示
@@ -1150,12 +1186,16 @@ class stability(Plugin):
                 if len(edited_images) > 1:
                     completion_tip = f"✅ 所有 {len(edited_images)} 张图片已发送完成！"
                     self._send_reply(completion_tip, e_context)
+            else:
+                logger.warning(f"[Gemini修图] 未收到图片，模型可能不支持图像生成。请检查模型名称是否正确。当前模型: {self.gemini_model_name}")
 
             if not sent_something:
-                self._send_reply("Gemini修图失败，API没有返回可识别的内容。", e_context)
+                self._send_reply(f"Gemini修图失败，API没有返回图片。\n当前模型 {self.gemini_model_name} 可能不支持图像生成。\n建议使用支持图像生成的模型，如：gemini-2.0-flash-exp 或 gemini-2.5-flash-image-preview", e_context)
 
         except Exception as e:
             logger.error(f"Gemini inpaint service exception: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             self._send_reply(f"Gemini修图服务出错: {str(e)}", e_context)
         finally:
             # 删除原始图片文件
